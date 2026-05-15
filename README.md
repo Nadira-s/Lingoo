@@ -1,82 +1,274 @@
-# Управление записями (Flutter)
+# 📱 Android Tenant Booking Management App
 
-Клиент для сотрудников арендатора платформы: авторизация, дашборд, записи, филиалы, услуги, сотрудники, профиль. Роли **TENANT_ADMIN** и **MANAGER** (ограничения по ТЗ).
+# 📌 Project Overview
 
-## Запуск
+This project is an Android mobile application for managing tenant booking data via a provided REST API.
 
-1. Установите [Flutter](https://docs.flutter.dev/get-started/install) и откройте проект в Android Studio / VS Code.
-2. Задайте базовый URL API (см. ниже).
-3. Выполните `flutter pub get`, затем `flutter run` на эмуляторе или устройстве.
+- **Project type:** Android client application  
+- **Tenant:** `beauty-salon`  
+- **Base context:** http://127.0.0.1:8000/business/beauty-salon/dashboard/  
+- **Purpose:** Connect Android app to backend API (no backend development required)
 
-```bash
-cd business
-flutter pub get
-flutter run
-```
+The application is designed for internal staff only (admin, manager, employees). Customers do not use this app.
 
-С `--dart-define` для URL:
+---
 
-```bash
-flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000/api/v1
-```
+# 🎯 Goal
 
-- **Эмулятор Android** и сервер на `127.0.0.1` машины: используйте `http://10.0.2.2:PORT/...` вместо `127.0.0.1`.
-- **Физическое устройство**: укажите IP компьютера в локальной сети, например `http://192.168.1.10:8000/api/v1`.
+To build an Android client that:
+- Connects to a provided API  
+- Displays and manages tenant data  
+- Handles role-based access (TENANT_ADMIN, MANAGER)  
+- Ensures proper data isolation per tenant  
 
-По умолчанию в коде задан `http://10.0.2.2:8000/api/v1` (см. `lib/core/config/app_config.dart`).
+---
 
-## API
+# 🔐 Authentication
 
-Ожидается REST API под префиксом `API_BASE_URL` (без завершающего `/`).
+- Login with username + password  
+- Token-based authentication (JWT / session depending on API)  
+- Save session locally (SharedPreferences / Secure Storage)  
+- Auto logout on token expiration  
 
-### Авторизация
+---
 
-- **JWT** в заголовке `Authorization: Bearer <access>`.
-- `POST /auth/token/` — тело: `{"username":"...","password":"..."}`; ответ: `{"access":"...","refresh":"..."}` (поле `refresh` опционально).
+# 👥 User Roles
 
-### Эндпоинты (относительно базы)
+# 🟢 TENANT_ADMIN
 
-| Метод | Путь | Назначение |
-|--------|------|------------|
-| GET | `/users/me/` | Текущий пользователь |
-| GET/POST | `/branches/` | Список / создание филиала |
-| GET/PATCH/DELETE | `/branches/{id}/` | Филиал |
-| GET/POST | `/services/` | Услуги |
-| GET/PATCH/DELETE | `/services/{id}/` | Услуга |
-| GET/POST | `/staff/` | Сотрудники |
-| GET/PATCH/DELETE | `/staff/{id}/` | Сотрудник |
-| GET | `/bookings/?date_from=&date_to=&status=&staff=` | Записи |
-| GET/PATCH | `/bookings/{id}/` | Запись, смена статуса/комментария |
+Full access to tenant data:
+- Branches (CRUD)  
+- Services (CRUD)  
+- Employees (CRUD)  
+- All bookings  
+- Change booking status  
+- Edit comments/notes  
 
-Списки в ответе поддерживаются в двух формах: массив объектов или объект с полем `results` (как у DRF) и опционально `count`.
+---
 
-Пути можно изменить в одном месте: `lib/data/api/api_paths.dart`.
+# 🟡 MANAGER
 
-### Ошибки
+Limited access:
+- Can view only their own bookings  
+- Can open only assigned booking details  
+- Can update status (if allowed by API)  
+- Can edit comment (if allowed by API)  
 
-Обрабатывается JSON вида `{"message":"...","code":"...","status":403}` и типичные коды HTTP. Сообщения для пользователя на русском (сеть, 401, 403, 404, 500).
+❌ Cannot:
+- View other employees' bookings  
+- Access other tenants’ data  
+- Manage staff  
+- Open unauthorized booking by ID  
 
-## Роли в приложении
+---
 
-- **TENANT_ADMIN**: дашборд со счётчиками, записи, филиалы, услуги, сотрудники (меню «Справочники» в drawer), профиль.
-- **MANAGER**: дашборд (только свои метрики по записям), список и детали **своих** записей, профиль. Разделы филиалов/услуг/сотрудников скрыты и при прямом URL перенаправляют на главную. Доступ к чужим записям определяется API (403/404).
+# 📲 App Screens
 
-## Тестовые пользователи
+- Login Screen  
+- Dashboard (summary stats)  
+- Bookings List (filters supported)  
+- Booking Details  
+- Branches (CRUD)  
+- Services (CRUD)  
+- Staff (restricted by role)  
+- Profile (logout)  
 
-Заполните после выдачи руководителем проекта (в ТЗ: TENANT_ADMIN и MANAGER).
+---
 
-## Проверка MANAGER
+# ⚙️ Flutter Code Requirements
 
-1. Войти под MANAGER.
-2. Открыть список записей — только свои.
-3. При открытии чужого `id` по прямой ссылке API должен вернуть 403/404; приложение показывает понятное сообщение.
+# 📦 Recommended Stack
 
-## Ограничения / доработка под ваш backend
+- Dart  
+- Flutter SDK  
+- Android Studio / VS Code  
+- State Management: Riverpod / BLoC (preferred)  
+- Dio or http for API requests  
+- Freezed / json_serializable for models  
+- Async/Await (Future, Stream)  
+- Clean Architecture (mandatory)  
+- GoRouter or Navigator 2.0  
+- SharedPreferences / Hive / Secure Storage  
 
-Если пути или поля JSON отличаются, правьте `api_paths.dart` и модели в `lib/data/models/`. Несовпадения зафиксируйте в этом разделе README.
+---
 
-## Сборка Android
+# 🧠 Code Structure Rules
 
-В `AndroidManifest.xml` включены `INTERNET` и `usesCleartextTraffic` для отладки по HTTP.
-# Lingoo
-# Lingoo
+❌ Not allowed:
+- Business logic inside UI  
+- Direct API calls from UI  
+- Mixing layers  
+
+✔️ Required:
+- Clean Architecture  
+- Repository + UseCase pattern  
+- State management (Riverpod/BLoC)  
+- Proper error handling  
+
+---
+
+# 📁 Project Structure
+
+lib/
+  data/
+    api/
+      dio_client.dart
+      endpoints.dart
+    models/
+      dto/
+    repositories/
+      impl/
+
+  domain/
+    models/
+    repositories/
+    usecases/
+
+  presentation/
+    auth/
+      screens/
+      widgets/
+      state/
+    dashboard/
+      screens/
+      widgets/
+      state/
+    bookings/
+    branches/
+    services/
+    staff/
+    profile/
+  core/
+    navigation/
+      app_router.dart
+    utils/
+    constants/
+    errors/
+    theme/
+
+  main.dart
+# 🏗 Architecture Rules
+
+UI layer only displays data  
+Domain layer contains business logic  
+Data layer handles API/local storage  
+Flow: UI → Domain → Data  
+Dependency Injection required  
+
+---
+
+# 🔌 API Integration
+
+- Authentication  
+- Current user info  
+- Branches  
+- Services  
+- Employees  
+- Bookings  
+- Status updates  
+
+⚠️ Backend handles tenant filtering (no bypass allowed)
+
+---
+
+# ❗ Error Handling
+
+- No internet  
+- 401 Unauthorized  
+- 403 Forbidden  
+- 404 Not found  
+- 500 Server error  
+- Empty states  
+- Invalid login  
+
+json
+{
+  "message": "Access denied",
+  "code": "permission_denied",
+  "status": 403
+}
+# 👤 Login Screen Requirements
+
+- Username field  
+- Password field  
+- Login button  
+- Loading indicator  
+- Error messages  
+- Validation  
+
+On success:
+- Fetch user data (ID, role, tenant)  
+- Open dashboard  
+
+---
+
+# 📊 Key Features
+
+- Role-based UI  
+- Tenant-scoped data  
+- Booking management  
+- Branch & service management  
+- Staff management  
+- Secure auth  
+- Safe error handling  
+
+---
+
+# 🧪 Testing Scenarios
+
+## Authentication
+- valid login  
+- invalid login  
+- empty fields  
+- logout  
+
+## TENANT_ADMIN
+- full CRUD access  
+- all bookings  
+
+## MANAGER
+- only own bookings  
+- no access to others  
+- correct error handling  
+
+---
+
+# 📌 Requirements
+
+- No crashes  
+- Role restrictions enforced  
+- Clean architecture  
+- API-driven app  
+
+---
+
+# 📄 README Must Include
+
+- API base URL  
+- Auth method  
+- Test accounts  
+- Endpoints list  
+- Role permissions  
+- Known issues  
+- Run instructions  
+
+---
+
+# 🚀 Optional Features
+
+- Search  
+- Pagination  
+- Pull-to-refresh  
+- Dark mode  
+- Calendar view  
+- Push notifications  
+
+---
+
+# ✅ Final Result
+
+- Working Android app  
+- Connected to API  
+- Role-based access working  
+- Clean UI structure  
+- Stable and production-ready architecture  
