@@ -1,32 +1,46 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'data/repository/mock_business_data.dart';
+import 'auth_notifier.dart';
 import 'domain/model/booking.dart';
 import 'domain/model/branch.dart';
 import 'domain/model/salon_service.dart';
 import 'domain/model/staff_member.dart';
+import 'network_providers.dart';
 
 final branchesListProvider = FutureProvider.autoDispose<List<Branch>>((
   ref,
 ) async {
-  return MockBusinessData.branches;
+  if (ref.watch(authNotifierProvider).valueOrNull == null) return [];
+  final (list, _) = await ref.read(businessApiProvider).fetchBranches();
+  return list;
 });
 
 final servicesListProvider = FutureProvider.autoDispose<List<SalonService>>((
   ref,
 ) async {
-  return MockBusinessData.services;
+  if (ref.watch(authNotifierProvider).valueOrNull == null) return [];
+  final (list, _) = await ref.read(businessApiProvider).fetchServices();
+  return list;
 });
 
 final staffListProvider = FutureProvider.autoDispose<List<StaffMember>>((
   ref,
 ) async {
-  return MockBusinessData.staff;
+  if (ref.watch(authNotifierProvider).valueOrNull == null) return [];
+  final (list, _) = await ref.read(businessApiProvider).fetchStaff();
+  return list;
 });
 
 final bookingsListProvider = FutureProvider.autoDispose
     .family<List<Booking>, BookingsQuery>((ref, query) async {
-      return MockBusinessData.todayBookings;
+      if (ref.watch(authNotifierProvider).valueOrNull == null) return [];
+      final (list, _) = await ref.read(businessApiProvider).fetchBookings(
+        dateFrom: query.dateFrom,
+        dateTo: query.dateTo,
+        status: query.status,
+        staffId: query.staffId,
+      );
+      return list;
     });
 
 class BookingsQuery {
@@ -69,31 +83,23 @@ final bookingDetailProvider = FutureProvider.autoDispose.family<Booking, int>((
   ref,
   id,
 ) async {
-  final b = MockBusinessData.bookingById(id);
-  if (b != null) return b;
-  throw StateError('Запись не найдена');
+  return ref.read(businessApiProvider).fetchBooking(id);
 });
 
 final branchDetailProvider = FutureProvider.autoDispose.family<Branch, int>((
   ref,
   id,
 ) async {
-  final b = MockBusinessData.branchById(id);
-  if (b != null) return b;
-  throw StateError('Филиал не найден');
+  return ref.read(businessApiProvider).fetchBranch(id);
 });
 
 final serviceDetailProvider = FutureProvider.autoDispose
     .family<SalonService, int>((ref, id) async {
-      final s = MockBusinessData.serviceById(id);
-      if (s != null) return s;
-      throw StateError('Услуга не найдена');
+      return ref.read(businessApiProvider).fetchService(id);
     });
 
 final staffDetailProvider = FutureProvider.autoDispose.family<StaffMember, int>(
   (ref, id) async {
-    final s = MockBusinessData.staffById(id);
-    if (s != null) return s;
-    throw StateError('Сотрудник не найден');
+    return ref.read(businessApiProvider).fetchStaffMember(id);
   },
 );

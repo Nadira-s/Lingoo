@@ -1,27 +1,38 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
-import '../../data/repository/mock_business_data.dart';
+import '../../catalog_providers.dart';
 import '../../domain/model/booking.dart';
 import '../widgets/components/app_ui_tokens.dart';
 import '../widgets/cards/booking_card.dart';
 import '../widgets/components/bordered_toolbar_icon.dart';
 
-class BookingsListScreen extends StatefulWidget {
+class BookingsListScreen extends ConsumerStatefulWidget {
   const BookingsListScreen({super.key});
 
   @override
-  State<BookingsListScreen> createState() => _BookingsListScreenState();
+  ConsumerState<BookingsListScreen> createState() => _BookingsListScreenState();
 }
 
-class _BookingsListScreenState extends State<BookingsListScreen> {
+class _BookingsListScreenState extends ConsumerState<BookingsListScreen> {
   int _activeTab = 0;
   final List<String> _tabs = ['Все', 'Новые', 'Подтвержденные', 'Завершенные'];
 
-  List<Booking> get _mockBookings => MockBusinessData.bookingsListDemo;
+  String? get _statusFilter => switch (_activeTab) {
+        1 => 'NEW',
+        2 => 'CONFIRMED',
+        3 => 'COMPLETED',
+        _ => null,
+      };
 
   @override
   Widget build(BuildContext context) {
+    final bookingsAsync = ref.watch(
+      bookingsListProvider(BookingsQuery(status: _statusFilter)),
+    );
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -104,42 +115,100 @@ class _BookingsListScreenState extends State<BookingsListScreen> {
           ),
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-        children: [
-          const Text(
-            'Сегодня, 24 мая',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: AppUiTokens.primaryText,
-            ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(bookingsListProvider);
+          await ref.read(
+            bookingsListProvider(BookingsQuery(status: _statusFilter)).future,
+          );
+        },
+        child: bookingsAsync.when(
+          loading: () => ListView(
+            children: const [
+              SizedBox(height: 120),
+              Center(child: CircularProgressIndicator()),
+            ],
           ),
-          const SizedBox(height: 20),
-          ..._mockBookings.map(
-            (data) => BookingCard(
-              booking: data,
-              onTap: () => context.push('/bookings/${data.id}'),
-            ),
+          error: (e, _) => ListView(
+            children: [
+              const SizedBox(height: 80),
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    'Не удалось загрузить записи.',
+                    style: TextStyle(color: Theme.of(context).colorScheme.error),
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 32),
-          const Text(
-            'Завтра, 25 мая',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: AppUiTokens.primaryText,
-            ),
-          ),
-          const SizedBox(height: 20),
-          BookingCard(
-            booking: MockBusinessData.bookingsListDemo[3],
-            onTap: () => context.push(
-              '/bookings/${MockBusinessData.bookingsListDemo[3].id}',
-            ),
-          ),
-        ],
+          data: (bookings) {
+            if (bookings.isEmpty) {
+              return ListView(
+                children: const [
+                  SizedBox(height: 80),
+                  Center(child: Text('Записей пока нет')),
+                ],
+              );
+            }
+            final grouped = _groupByDay(bookings);
+            return ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              children: [
+                for (final entry in grouped.entries) ...[
+                  Text(
+                    entry.key,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: AppUiTokens.primaryText,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  ...entry.value.map(
+                    (data) => BookingCard(
+                      booking: data,
+                      onTap: () => context.push('/bookings/${data.id}'),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                ],
+              ],
+            );
+          },
+        ),
       ),
     );
+  }
+
+  Map<String, List<Booking>> _groupByDay(List<Booking> bookings) {
+    final sorted = [...bookings]
+      ..sort((a, b) {
+        final at = a.startsAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bt = b.startsAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return at.compareTo(bt);
+      });
+    final map = <String, List<Booking>>{};
+    for (final b in sorted) {
+      final label = _dayLabel(b.startsAt);
+      map.putIfAbsent(label, () => []).add(b);
+    }
+    return map;
+  }
+
+  String _dayLabel(DateTime? dt) {
+    if (dt == null) return 'Без даты';
+    final local = dt.toLocal();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(local.year, local.month, local.day);
+    if (day == today) {
+      return 'Сегодня, ${DateFormat('d MMMM', 'ru').format(local)}';
+    }
+    if (day == today.add(const Duration(days: 1))) {
+      return 'Завтра, ${DateFormat('d MMMM', 'ru').format(local)}';
+    }
+    return DateFormat('d MMMM', 'ru').format(local);
   }
 }

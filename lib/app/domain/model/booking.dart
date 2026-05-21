@@ -95,9 +95,11 @@ class Booking {
       status: readString(json, 'status').isEmpty
           ? readString(json, 'state')
           : readString(json, 'status'),
-      note: readString(json, 'note').isEmpty
-          ? readString(json, 'comment')
-          : readString(json, 'note'),
+      note: readString(json, 'admin_comment').isEmpty
+          ? (readString(json, 'note').isEmpty
+              ? readString(json, 'comment')
+              : readString(json, 'note'))
+          : readString(json, 'admin_comment'),
       serviceId: readInt(json['service_id']) ?? readInt(service?['id']),
       branchId: readInt(json['branch_id']) ?? readInt(branch?['id']),
       staffId: readInt(json['staff_id']) ?? readInt(staff?['id']),

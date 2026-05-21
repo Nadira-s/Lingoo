@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 
 import '../../domain/model/booking.dart';
 import '../../catalog_providers.dart';
+import '../../network_providers.dart';
+import '../../utils/api_exception.dart';
 import '../widgets/components/app_ui_tokens.dart';
 import '../widgets/components/booking_status_badge.dart';
 
@@ -55,16 +57,17 @@ class BookingDetailScreen extends ConsumerWidget {
   }
 }
 
-class _BookingDetailContent extends StatefulWidget {
+class _BookingDetailContent extends ConsumerStatefulWidget {
   const _BookingDetailContent({super.key, required this.booking});
 
   final Booking booking;
 
   @override
-  State<_BookingDetailContent> createState() => _BookingDetailContentState();
+  ConsumerState<_BookingDetailContent> createState() =>
+      _BookingDetailContentState();
 }
 
-class _BookingDetailContentState extends State<_BookingDetailContent> {
+class _BookingDetailContentState extends ConsumerState<_BookingDetailContent> {
   late String? _status;
   late final TextEditingController _noteCtrl;
   late final FocusNode _noteFocus;
@@ -73,6 +76,12 @@ class _BookingDetailContentState extends State<_BookingDetailContent> {
   bool _noteEditable = false;
 
   static const _statuses = <String, String>{
+    'NEW': 'Новая',
+    'PENDING': 'Ожидает',
+    'CONFIRMED': 'Подтверждена',
+    'COMPLETED': 'Завершена',
+    'CANCELLED': 'Отменена',
+    'NO_SHOW': 'Неявка',
     'pending': 'Ожидает',
     'confirmed': 'Подтверждена',
     'completed': 'Завершена',
@@ -100,9 +109,12 @@ class _BookingDetailContentState extends State<_BookingDetailContent> {
   void initState() {
     super.initState();
     final b = widget.booking;
-    _status = b.status.isEmpty ? null : b.status;
+    _status = b.status.isEmpty ? null : b.status.toUpperCase();
     if (_status != null && !_statuses.containsKey(_status)) {
-      _status = null;
+      _status = b.status.isEmpty ? null : b.status;
+      if (_status != null && !_statuses.containsKey(_status)) {
+        _status = null;
+      }
     }
     _noteCtrl = TextEditingController(text: b.note);
     _noteFocus = FocusNode();
@@ -130,12 +142,33 @@ class _BookingDetailContentState extends State<_BookingDetailContent> {
 
   Future<void> _save() async {
     setState(() => _saving = true);
-    await Future<void>.delayed(const Duration(milliseconds: 350));
-    if (!mounted) return;
-    setState(() => _saving = false);
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Сохранено (демо-режим)')));
+    try {
+      final api = ref.read(businessApiProvider);
+      final newStatus = _status?.trim();
+      final oldStatus = widget.booking.status.toUpperCase();
+      if (newStatus != null &&
+          newStatus.isNotEmpty &&
+          newStatus.toUpperCase() != oldStatus) {
+        await api.patchBookingStatus(widget.booking.id, newStatus);
+      }
+      final note = _noteCtrl.text.trim();
+      if (note != widget.booking.note.trim()) {
+        await api.patchBookingComment(widget.booking.id, note);
+      }
+      ref.invalidate(bookingDetailProvider(widget.booking.id));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Сохранено')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      final msg = e is ApiException
+          ? e.userMessage
+          : 'Не удалось сохранить изменения.';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   void _openChangeStatus() {

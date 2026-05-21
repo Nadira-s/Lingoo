@@ -2,8 +2,7 @@
 class AppConfig {
   const AppConfig({required this.apiBaseUrl});
 
-  /// Базовый URL API **без** завершающего слэша, например:
-  /// `http://10.0.2.2:8000/api/v1` для эмулятора Android.
+  /// Базовый URL API **без** завершающего слэша.
   final String apiBaseUrl;
 
   static AppConfig? _instance;
@@ -11,7 +10,6 @@ class AppConfig {
   static AppConfig get instance =>
       _instance ??= AppConfig(apiBaseUrl: _readBaseUrl());
 
-  /// Для тестов.
   static void overrideForTest(AppConfig config) {
     _instance = config;
   }
@@ -23,6 +21,6 @@ class AppConfig {
   static String _readBaseUrl() {
     const fromEnv = String.fromEnvironment('API_BASE_URL');
     if (fromEnv.isNotEmpty) return fromEnv.replaceAll(RegExp(r'/$'), '');
-    return 'http://10.0.2.2:8000/api/v1';
+    return 'http://35.255.17.200/api/v1';
   }
 }

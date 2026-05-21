@@ -57,7 +57,7 @@ ApiException apiExceptionFromDio(DioException e) {
 String? _messageFromBody(dynamic data) {
   if (data is Map) {
     final m = data['message'];
-    if (m is String && m.isNotEmpty) return m;
+    if (m is String && m.isNotEmpty) return _cleanApiMessage(m);
     final detail = data['detail'];
     if (detail is String && detail.isNotEmpty) return detail;
     if (detail is List && detail.isNotEmpty) {
@@ -67,4 +67,11 @@ String? _messageFromBody(dynamic data) {
     }
   }
   return null;
+}
+
+/// Убирает обёртку Django REST: `[ErrorDetail(string='...', code='...')]`.
+String _cleanApiMessage(String raw) {
+  final match = RegExp(r"string='([^']*)'").firstMatch(raw);
+  if (match != null) return match.group(1)!;
+  return raw;
 }

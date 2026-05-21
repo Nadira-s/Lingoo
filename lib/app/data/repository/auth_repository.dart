@@ -21,26 +21,52 @@ class AuthRepository {
 
   Future<UserProfile> login(String username, String password) async {
     await _tokens.clear();
-    final tokens = await _api.login(username: username, password: password);
-    if (tokens.access.isEmpty) {
+    final result = await _api.login(username: username, password: password);
+    if (result.tokens.access.isEmpty) {
       throw ApiException(userMessage: 'Некорректный ответ при входе.');
     }
-    await _tokens.writeTokens(access: tokens.access, refresh: tokens.refresh);
+    await _tokens.writeTokens(
+      access: result.tokens.access,
+      refresh: result.tokens.refresh,
+    );
+    if (result.user != null) return result.user!;
     return _api.fetchCurrentUser();
   }
 
   Future<UserProfile?> restoreSession() async {
-    final t = await _tokens.readAccessToken();
-    if (t == null || t.isEmpty) return null;
+    final access = await _tokens.readAccessToken();
+    if (access == null || access.isEmpty) return null;
     try {
       return await _api.fetchCurrentUser();
     } catch (_) {
-      await _tokens.clear();
-      return null;
+      final refresh = await _tokens.readRefreshToken();
+      if (refresh == null || refresh.isEmpty) {
+        await _tokens.clear();
+        return null;
+      }
+      try {
+        final tokens = await _api.refreshToken(refresh);
+        if (tokens.access.isEmpty) {
+          await _tokens.clear();
+          return null;
+        }
+        await _tokens.writeTokens(
+          access: tokens.access,
+          refresh: tokens.refresh ?? refresh,
+        );
+        return await _api.fetchCurrentUser();
+      } catch (_) {
+        await _tokens.clear();
+        return null;
+      }
     }
   }
 
   Future<void> logout() async {
+    final refresh = await _tokens.readRefreshToken();
+    try {
+      await _api.logout(refresh: refresh);
+    } catch (_) {}
     await _tokens.clear();
   }
 }
