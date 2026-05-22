@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'dart:developer' as developer;
 
 import '../auth_notifier.dart';
 import '../force_logout.dart';
@@ -24,8 +25,10 @@ import '../ui/staff/staff_schedule_screen.dart';
 final _routerRefresh = ValueNotifier<int>(0);
 
 final goRouterProvider = Provider<GoRouter>((ref) {
+  developer.log('🔄 goRouterProvider initializing...');
   ref.listen(authNotifierProvider, (previous, next) => _routerRefresh.value++);
-  ref.listen(forceLogoutTickProvider, (previous, next) => _routerRefresh.value++);
+  ref.listen(
+      forceLogoutTickProvider, (previous, next) => _routerRefresh.value++);
 
   return GoRouter(
     initialLocation: '/splash',
@@ -33,6 +36,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final auth = ref.read(authNotifierProvider);
       final loc = state.matchedLocation;
+      developer.log(
+          '🧭 Router redirect: location=$loc, auth=${auth.isLoading ? "loading" : (auth.hasValue ? "has_user" : "no_user")}');
 
       if (auth.isLoading) {
         if (loc == '/login') return null;

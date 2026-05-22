@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:developer' as developer;
 
 import 'auth_notifier.dart';
 import 'force_logout.dart';
@@ -11,13 +12,17 @@ class BusinessApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    developer.log('🏗️ BusinessApp.build() started');
+
     ref.listen<int>(forceLogoutTickProvider, (prev, next) {
       if (prev != null && prev != next) {
         ref.read(authNotifierProvider.notifier).markLoggedOut();
       }
     });
 
+    developer.log('🌐 Watching goRouterProvider...');
     final router = ref.watch(goRouterProvider);
+    developer.log('✅ Router initialized');
 
     return MaterialApp.router(
       title: 'Управление записями',

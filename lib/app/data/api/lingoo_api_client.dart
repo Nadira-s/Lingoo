@@ -62,7 +62,6 @@ class LingooApiClient extends ApiClient {
       throw ApiException(userMessage: 'Некорректный профиль пользователя.');
     }
     return UserProfile.fromJson(Map<String, dynamic>.from(userRaw));
-  }
 
   Future<DashboardData> fetchDashboard() async {
     final res = await get(ApiEndpoints.dashboard);
@@ -76,8 +75,10 @@ class LingooApiClient extends ApiClient {
         : <Booking>[];
     return DashboardData(
       stats: DashboardStats(
-        branches: _readCount(map, ['branch_count', 'branches', 'branches_count']),
-        services: _readCount(map, ['service_count', 'services', 'services_count']),
+        branches:
+            _readCount(map, ['branch_count', 'branches', 'branches_count']),
+        services:
+            _readCount(map, ['service_count', 'services', 'services_count']),
         staff: _readCount(map, ['staff_count', 'staff']),
         bookings: _readCount(map, [
           'bookings_today',
@@ -152,7 +153,8 @@ class LingooApiClient extends ApiClient {
     return StaffSchedule.fromJson(parseEntityMap(res.data));
   }
 
-  Future<StaffSchedule> putStaffSchedule(int staffId, StaffSchedule schedule) async {
+  Future<StaffSchedule> putStaffSchedule(
+      int staffId, StaffSchedule schedule) async {
     final res = await put(
       ApiEndpoints.staffSchedule(staffId),
       data: schedule.toPutBody(),
