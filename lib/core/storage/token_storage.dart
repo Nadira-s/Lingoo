@@ -1,13 +1,23 @@
+import 'dart:async';
+import 'dart:io' show Platform;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 const _kAccess = 'access_token';
 const _kRefresh = 'refresh_token';
+const _secureTimeout = Duration(seconds: 2);
 
-/// JWT storage: Keychain / Keystore with in-memory fallback (macOS sandbox dev).
+bool _desktopUsesMemoryOnly() {
+  if (kIsWeb) return true;
+  return Platform.isMacOS || Platform.isWindows || Platform.isLinux;
+}
+
+/// JWT storage. Desktop uses in-memory (Keychain can hang); mobile uses secure + timeout.
 class TokenStorage {
-  TokenStorage({FlutterSecureStorage? storage})
-      : _storage = storage ?? _defaultStorage;
+  TokenStorage({FlutterSecureStorage? storage, bool? memoryOnly})
+      : _storage = storage ?? _defaultStorage,
+        _memoryOnly = memoryOnly ?? _desktopUsesMemoryOnly();
 
   static const FlutterSecureStorage _defaultStorage = FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
@@ -18,58 +28,62 @@ class TokenStorage {
   );
 
   final FlutterSecureStorage _storage;
+  final bool _memoryOnly;
 
   String? _memoryAccess;
   String? _memoryRefresh;
-  bool _useMemoryFallback = false;
 
   Future<String?> readAccessToken() async {
-    if (_useMemoryFallback) return _memoryAccess;
-    try {
-      return await _storage.read(key: _kAccess);
-    } catch (e) {
-      debugPrint('TokenStorage: secure read access failed: $e');
-      _useMemoryFallback = true;
-      return _memoryAccess;
-    }
+    if (_memoryOnly) return _memoryAccess;
+    return _readSecure(_kAccess, _memoryAccess);
   }
 
   Future<String?> readRefreshToken() async {
-    if (_useMemoryFallback) return _memoryRefresh;
-    try {
-      return await _storage.read(key: _kRefresh);
-    } catch (e) {
-      debugPrint('TokenStorage: secure read refresh failed: $e');
-      _useMemoryFallback = true;
-      return _memoryRefresh;
-    }
+    if (_memoryOnly) return _memoryRefresh;
+    return _readSecure(_kRefresh, _memoryRefresh);
   }
 
   Future<void> writeTokens({required String access, String? refresh}) async {
     _memoryAccess = access;
     _memoryRefresh = refresh;
-    if (_useMemoryFallback) return;
-    try {
-      await _storage.write(key: _kAccess, value: access);
-      if (refresh != null) {
-        await _storage.write(key: _kRefresh, value: refresh);
-      }
-    } catch (e) {
-      debugPrint('TokenStorage: secure write failed, using memory: $e');
-      _useMemoryFallback = true;
+    if (_memoryOnly) return;
+    await _writeSecure(_kAccess, access);
+    if (refresh != null) {
+      await _writeSecure(_kRefresh, refresh);
     }
   }
 
   Future<void> clear() async {
     _memoryAccess = null;
     _memoryRefresh = null;
-    if (_useMemoryFallback) return;
+    if (_memoryOnly) return;
+    await _deleteSecure(_kAccess);
+    await _deleteSecure(_kRefresh);
+  }
+
+  Future<String?> _readSecure(String key, String? fallback) async {
     try {
-      await _storage.delete(key: _kAccess);
-      await _storage.delete(key: _kRefresh);
-    } catch (e) {
-      debugPrint('TokenStorage: secure clear failed: $e');
-      _useMemoryFallback = true;
+      return await _storage.read(key: key).timeout(_secureTimeout);
+    } on TimeoutException {
+      return fallback;
+    } catch (_) {
+      return fallback;
     }
+  }
+
+  Future<void> _writeSecure(String key, String value) async {
+    try {
+      await _storage.write(key: key, value: value).timeout(_secureTimeout);
+    } on TimeoutException {
+      // keep in-memory copy only
+    } catch (_) {}
+  }
+
+  Future<void> _deleteSecure(String key) async {
+    try {
+      await _storage.delete(key: key).timeout(_secureTimeout);
+    } on TimeoutException {
+      // ignore
+    } catch (_) {}
   }
 }

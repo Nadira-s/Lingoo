@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../../../core/errors/api_exception.dart';
 import '../../../core/storage/token_storage.dart';
 import '../../domain/model/user_profile.dart';
@@ -27,7 +29,9 @@ class AuthRepository {
     final access = await _tokens.readAccessToken();
     if (access == null || access.isEmpty) return null;
     try {
-      return await _repo.getCurrentUser();
+      return await _repo
+          .getCurrentUser()
+          .timeout(const Duration(seconds: 15));
     } catch (_) {
       final refresh = await _tokens.readRefreshToken();
       if (refresh == null || refresh.isEmpty) {

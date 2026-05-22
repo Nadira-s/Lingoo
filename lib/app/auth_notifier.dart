@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'domain/model/user_profile.dart';
@@ -10,7 +12,14 @@ final authNotifierProvider = AsyncNotifierProvider<AuthNotifier, UserProfile?>(
 class AuthNotifier extends AsyncNotifier<UserProfile?> {
   @override
   Future<UserProfile?> build() async {
-    return ref.read(authRepositoryProvider).restoreSession();
+    try {
+      return await ref
+          .read(authRepositoryProvider)
+          .restoreSession()
+          .timeout(const Duration(seconds: 20));
+    } on TimeoutException {
+      return null;
+    }
   }
 
   Future<void> login(String username, String password) async {

@@ -48,4 +48,6 @@ Dio createDio({
       },
     ),
   ]);
+
+  return dio;
 }

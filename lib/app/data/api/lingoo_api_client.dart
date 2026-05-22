@@ -26,11 +26,11 @@ class LingooApiClient extends ApiClient {
     required String username,
     required String password,
   }) async {
-      final res = await post(
-        ApiEndpoints.authLogin,
-        data: {'username': username, 'password': password},
-        options: Options(headers: {'Authorization': null}),
-      );
+    final res = await post(
+      ApiEndpoints.authLogin,
+      data: {'username': username, 'password': password},
+      options: Options(headers: {'Authorization': null}),
+    );
     return parseAuthLoginResponse(res.data);
   }
 
@@ -62,6 +62,7 @@ class LingooApiClient extends ApiClient {
       throw ApiException(userMessage: 'Некорректный профиль пользователя.');
     }
     return UserProfile.fromJson(Map<String, dynamic>.from(userRaw));
+  }
 
   Future<DashboardData> fetchDashboard() async {
     final res = await get(ApiEndpoints.dashboard);
