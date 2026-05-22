@@ -244,7 +244,7 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
                         ),
                         const SizedBox(height: 8),
                         DropdownButtonFormField<String>(
-                          initialValue: _selectedBranch,
+                          value: _selectedBranch,
                           dropdownColor: Colors.white,
                           decoration: InputDecoration(
                             filled: true,
@@ -302,7 +302,7 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
                         ),
                         const SizedBox(height: 8),
                         DropdownButtonFormField<String>(
-                          initialValue: _selectedStatus,
+                          value: _selectedStatus,
                           dropdownColor: Colors.white,
                           decoration: InputDecoration(
                             filled: true,

@@ -3,8 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../catalog_providers.dart';
+import '../../domain/model/branch.dart';
+import '../widgets/async_screen_body.dart';
 import '../widgets/components/active_status_chip.dart';
 import '../widgets/components/app_bar_add_button.dart';
+import '../widgets/components/app_ui_tokens.dart';
 import '../widgets/lists/search_field.dart';
 
 class BranchesListScreen extends ConsumerStatefulWidget {
@@ -15,12 +18,12 @@ class BranchesListScreen extends ConsumerStatefulWidget {
 }
 
 class _BranchesListScreenState extends ConsumerState<BranchesListScreen> {
-  late TextEditingController _searchController;
+  final _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _searchController = TextEditingController();
+    _searchController.addListener(() => setState(() {}));
   }
 
   @override
@@ -34,27 +37,41 @@ class _BranchesListScreenState extends ConsumerState<BranchesListScreen> {
     final list = ref.watch(branchesListProvider);
 
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
         centerTitle: false,
         title: const Text(
           'Филиалы',
           style: TextStyle(
             fontWeight: FontWeight.w800,
-            fontSize: 24,
-            color: Color(0xFF1A1C1E),
+            fontSize: 28,
+            color: AppUiTokens.primaryText,
           ),
         ),
         elevation: 0,
         backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1A1C1E),
+        foregroundColor: AppUiTokens.primaryText,
         actions: [
           AppBarAddButton(onPressed: () => context.push('/branches/new')),
         ],
       ),
-      body: list.when(
+      body: AsyncScreenBody<List<Branch>>(
+        value: list,
+        emptyMessage: 'Филиалов пока нет',
+        onRetry: () => ref.invalidate(branchesListProvider),
         data: (items) {
-          if (items.isEmpty) {
-            return const Center(child: Text('Список пуст.'));
+          final q = _searchController.text.trim().toLowerCase();
+          final filtered = q.isEmpty
+              ? items
+              : items
+                  .where(
+                    (b) =>
+                        b.name.toLowerCase().contains(q) ||
+                        b.address.toLowerCase().contains(q),
+                  )
+                  .toList();
+          if (filtered.isEmpty) {
+            return const Center(child: Text('Ничего не найдено'));
           }
           return RefreshIndicator(
             onRefresh: () async {
@@ -62,8 +79,8 @@ class _BranchesListScreenState extends ConsumerState<BranchesListScreen> {
               await ref.read(branchesListProvider.future);
             },
             child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              itemCount: items.length + 1,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              itemCount: filtered.length + 1,
               itemBuilder: (context, i) {
                 if (i == 0) {
                   return Padding(
@@ -74,17 +91,18 @@ class _BranchesListScreenState extends ConsumerState<BranchesListScreen> {
                     ),
                   );
                 }
-                final b = items[i - 1];
+                final b = filtered[i - 1];
                 return Container(
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFF0F0F0)),
+                    border: Border.all(color: AppUiTokens.borderSubtle),
                   ),
-                  child: GestureDetector(
+                  child: InkWell(
                     onTap: () => context.push('/branches/${b.id}/edit'),
+                    borderRadius: BorderRadius.circular(12),
                     child: Row(
                       children: [
                         Expanded(
@@ -96,7 +114,6 @@ class _BranchesListScreenState extends ConsumerState<BranchesListScreen> {
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w800,
                                   fontSize: 16,
-                                  color: Color(0xFF1A1C1E),
                                 ),
                               ),
                               const SizedBox(height: 6),
@@ -105,13 +122,12 @@ class _BranchesListScreenState extends ConsumerState<BranchesListScreen> {
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w500,
                                   fontSize: 14,
-                                  color: Color(0xFF8B8B8B),
+                                  color: AppUiTokens.secondaryText,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(width: 12),
                         ActiveStatusChip(active: b.isActive),
                       ],
                     ),
@@ -121,8 +137,6 @@ class _BranchesListScreenState extends ConsumerState<BranchesListScreen> {
             ),
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
       ),
     );
   }

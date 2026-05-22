@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/model/salon_service.dart';
 import '../../catalog_providers.dart';
+import '../../di/app_providers.dart';
+import '../../utils/api_exception.dart';
 import '../widgets/components/form_text_field.dart';
 
 class ServiceFormScreen extends ConsumerStatefulWidget {
@@ -16,12 +18,17 @@ class ServiceFormScreen extends ConsumerStatefulWidget {
 
 class _ServiceFormScreenState extends ConsumerState<ServiceFormScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _bodyKey = GlobalKey<_ServiceFormBodyState>();
+  bool _saving = false;
 
-  void _onSave(BuildContext context) {
-    if (_formKey.currentState?.validate() ?? false) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Сохранено (демо-режим)')));
+  Future<void> _onSave(BuildContext context) async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      final ok = await _bodyKey.currentState?.submit() ?? false;
+      if (ok && context.mounted) Navigator.of(context).maybePop();
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -31,9 +38,13 @@ class _ServiceFormScreenState extends ConsumerState<ServiceFormScreen> {
     if (serviceId == null) {
       return _ServiceFormScaffold(
         title: 'Новая услуга',
-        formKey: _formKey,
+        saving: _saving,
         onSave: () => _onSave(context),
-        child: _ServiceFormBody(formKey: _formKey, initial: null),
+        child: _ServiceFormBody(
+          key: _bodyKey,
+          formKey: _formKey,
+          initial: null,
+        ),
       );
     }
 
@@ -47,9 +58,13 @@ class _ServiceFormScreenState extends ConsumerState<ServiceFormScreen> {
       ),
       data: (s) => _ServiceFormScaffold(
         title: 'Редактирование',
-        formKey: _formKey,
+        saving: _saving,
         onSave: () => _onSave(context),
-        child: _ServiceFormBody(formKey: _formKey, initial: s),
+        child: _ServiceFormBody(
+          key: _bodyKey,
+          formKey: _formKey,
+          initial: s,
+        ),
       ),
     );
   }
@@ -58,15 +73,15 @@ class _ServiceFormScreenState extends ConsumerState<ServiceFormScreen> {
 class _ServiceFormScaffold extends StatelessWidget {
   const _ServiceFormScaffold({
     required this.title,
-    required this.formKey,
     required this.onSave,
     required this.child,
+    this.saving = false,
   });
 
   final String title;
-  final GlobalKey<FormState> formKey;
   final VoidCallback onSave;
   final Widget child;
+  final bool saving;
 
   @override
   Widget build(BuildContext context) {
@@ -84,15 +99,21 @@ class _ServiceFormScaffold extends StatelessWidget {
         ),
         actions: [
           TextButton(
-            onPressed: onSave,
-            child: const Text(
-              'Сохранить',
-              style: TextStyle(
-                color: Color(0xFFFFCC00),
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-              ),
-            ),
+            onPressed: saving ? null : onSave,
+            child: saving
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text(
+                    'Сохранить',
+                    style: TextStyle(
+                      color: Color(0xFFFFCC00),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
           ),
         ],
       ),
@@ -102,7 +123,11 @@ class _ServiceFormScaffold extends StatelessWidget {
 }
 
 class _ServiceFormBody extends ConsumerStatefulWidget {
-  const _ServiceFormBody({required this.formKey, required this.initial});
+  const _ServiceFormBody({
+    super.key,
+    required this.formKey,
+    required this.initial,
+  });
 
   final GlobalKey<FormState> formKey;
   final SalonService? initial;
@@ -142,7 +167,53 @@ class _ServiceFormBodyState extends ConsumerState<_ServiceFormBody> {
     super.dispose();
   }
 
-  void _onDelete() {
+  SalonService _buildDraft() {
+    final price = double.parse(_price.text.trim().replaceAll(',', '.'));
+    final duration = int.parse(_duration.text.trim());
+    return SalonService(
+      id: widget.initial?.id ?? 0,
+      name: _name.text.trim(),
+      description: _description.text.trim(),
+      price: price,
+      durationMinutes: duration,
+      isActive: _active,
+    );
+  }
+
+  void _showError(Object e) {
+    final msg = e is ApiException
+        ? e.userMessage
+        : 'Не удалось выполнить операцию.';
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<bool> submit() async {
+    if (!(widget.formKey.currentState?.validate() ?? false)) return false;
+    final repo = ref.read(lingooRepositoryProvider);
+    try {
+      final draft = _buildDraft();
+      if (widget.initial == null) {
+        await repo.createService(draft);
+      } else {
+        await repo.updateService(draft);
+      }
+      ref.invalidate(servicesListProvider);
+      if (widget.initial != null) {
+        ref.invalidate(serviceDetailProvider(widget.initial!.id));
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Услуга сохранена')),
+        );
+      }
+      return true;
+    } catch (e) {
+      _showError(e);
+      return false;
+    }
+  }
+
+  Future<void> _onDelete() async {
     if (widget.initial == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -151,28 +222,36 @@ class _ServiceFormBodyState extends ConsumerState<_ServiceFormBody> {
       );
       return;
     }
-    showDialog<void>(
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Удалить услугу?'),
-        content: const Text('Демо: запись не будет удалена.'),
+        content: const Text('Это действие нельзя отменить.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Отмена'),
           ),
           TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Демо: удаление не выполнено.')),
-              );
-            },
+            onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Удалить'),
           ),
         ],
       ),
     );
+    if (confirmed != true || !mounted) return;
+    try {
+      await ref.read(lingooRepositoryProvider).deleteService(widget.initial!.id);
+      ref.invalidate(servicesListProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Услуга удалена')),
+        );
+        Navigator.of(context).maybePop();
+      }
+    } catch (e) {
+      _showError(e);
+    }
   }
 
   @override
@@ -203,7 +282,6 @@ class _ServiceFormBodyState extends ConsumerState<_ServiceFormBody> {
                     hintText: 'Введите описание...',
                     maxLines: 3,
                   ),
-
                   const SizedBox(height: 16),
                   FormTextField(
                     controller: _price,
@@ -223,7 +301,6 @@ class _ServiceFormBodyState extends ConsumerState<_ServiceFormBody> {
                     },
                   ),
                   const SizedBox(height: 16),
-
                   FormTextField(
                     controller: _duration,
                     labelText: 'Длительность (мин)',
@@ -253,7 +330,7 @@ class _ServiceFormBodyState extends ConsumerState<_ServiceFormBody> {
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
-                        initialValue: _active ? 'active' : 'inactive',
+                        value: _active ? 'active' : 'inactive',
                         dropdownColor: Colors.white,
                         decoration: InputDecoration(
                           filled: true,

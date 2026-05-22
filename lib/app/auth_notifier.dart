@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'domain/model/user_profile.dart';
-import 'data/repository/auth_repository.dart';
+import 'di/app_providers.dart';
 
 final authNotifierProvider = AsyncNotifierProvider<AuthNotifier, UserProfile?>(
   AuthNotifier.new,

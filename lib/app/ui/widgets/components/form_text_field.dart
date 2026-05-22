@@ -9,6 +9,7 @@ class FormTextField extends StatelessWidget {
     this.validator,
     this.maxLines = 1,
     this.keyboardType = TextInputType.text,
+    this.obscureText = false,
   });
 
   final TextEditingController controller;
@@ -17,6 +18,7 @@ class FormTextField extends StatelessWidget {
   final String? Function(String?)? validator;
   final int maxLines;
   final TextInputType keyboardType;
+  final bool obscureText;
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +38,7 @@ class FormTextField extends StatelessWidget {
           controller: controller,
           maxLines: maxLines,
           keyboardType: keyboardType,
+          obscureText: obscureText,
           decoration: InputDecoration(
             hintText: hintText,
             filled: true,

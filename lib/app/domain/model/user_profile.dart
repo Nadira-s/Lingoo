@@ -26,7 +26,9 @@ class UserProfile {
           ? readString(json, 'login')
           : readString(json, 'username'),
       role: UserRole.fromApi(
-        json['role'] as String? ?? json['role_name'] as String?,
+        json['role'] as String? ??
+            json['role_name'] as String? ??
+            (readBool(json, 'is_tenant_admin') ? 'TENANT_ADMIN' : null),
       ),
       tenant: tenantRaw is Map ? Tenant.fromJson(asMap(tenantRaw)!) : null,
       staffProfile: _parseStaff(json),

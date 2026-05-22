@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../domain/model/booking.dart';
 import '../../catalog_providers.dart';
-import '../../network_providers.dart';
+import '../../di/app_providers.dart';
 import '../../utils/api_exception.dart';
 import '../widgets/components/app_ui_tokens.dart';
 import '../widgets/components/booking_status_badge.dart';
@@ -143,17 +143,17 @@ class _BookingDetailContentState extends ConsumerState<_BookingDetailContent> {
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
-      final api = ref.read(businessApiProvider);
+      final repo = ref.read(lingooRepositoryProvider);
       final newStatus = _status?.trim();
       final oldStatus = widget.booking.status.toUpperCase();
       if (newStatus != null &&
           newStatus.isNotEmpty &&
           newStatus.toUpperCase() != oldStatus) {
-        await api.patchBookingStatus(widget.booking.id, newStatus);
+        await repo.updateBookingStatus(widget.booking.id, newStatus);
       }
       final note = _noteCtrl.text.trim();
       if (note != widget.booking.note.trim()) {
-        await api.patchBookingComment(widget.booking.id, note);
+        await repo.updateBookingComment(widget.booking.id, note);
       }
       ref.invalidate(bookingDetailProvider(widget.booking.id));
       if (!mounted) return;

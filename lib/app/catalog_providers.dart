@@ -1,105 +1,101 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'auth_notifier.dart';
+import 'di/app_providers.dart';
 import 'domain/model/booking.dart';
 import 'domain/model/branch.dart';
 import 'domain/model/salon_service.dart';
 import 'domain/model/staff_member.dart';
-import 'network_providers.dart';
+import 'domain/model/staff_schedule.dart';
 
 final branchesListProvider = FutureProvider.autoDispose<List<Branch>>((
   ref,
 ) async {
   if (ref.watch(authNotifierProvider).valueOrNull == null) return [];
-  final (list, _) = await ref.read(businessApiProvider).fetchBranches();
-  return list;
+  return ref.read(lingooRepositoryProvider).getBranches();
 });
 
 final servicesListProvider = FutureProvider.autoDispose<List<SalonService>>((
   ref,
 ) async {
   if (ref.watch(authNotifierProvider).valueOrNull == null) return [];
-  final (list, _) = await ref.read(businessApiProvider).fetchServices();
-  return list;
+  return ref.read(lingooRepositoryProvider).getServices();
 });
 
 final staffListProvider = FutureProvider.autoDispose<List<StaffMember>>((
   ref,
 ) async {
   if (ref.watch(authNotifierProvider).valueOrNull == null) return [];
-  final (list, _) = await ref.read(businessApiProvider).fetchStaff();
-  return list;
+  return ref.read(lingooRepositoryProvider).getStaff();
 });
 
 final bookingsListProvider = FutureProvider.autoDispose
     .family<List<Booking>, BookingsQuery>((ref, query) async {
       if (ref.watch(authNotifierProvider).valueOrNull == null) return [];
-      final (list, _) = await ref.read(businessApiProvider).fetchBookings(
+      return ref.read(lingooRepositoryProvider).getBookings(
         dateFrom: query.dateFrom,
         dateTo: query.dateTo,
         status: query.status,
         staffId: query.staffId,
+        search: query.search,
       );
-      return list;
     });
 
 class BookingsQuery {
-  const BookingsQuery({this.dateFrom, this.dateTo, this.status, this.staffId});
+  const BookingsQuery({
+    this.dateFrom,
+    this.dateTo,
+    this.status,
+    this.staffId,
+    this.search,
+  });
 
   final DateTime? dateFrom;
   final DateTime? dateTo;
   final String? status;
   final int? staffId;
-
-  BookingsQuery copyWith({
-    DateTime? dateFrom,
-    DateTime? dateTo,
-    String? status,
-    int? staffId,
-  }) {
-    return BookingsQuery(
-      dateFrom: dateFrom ?? this.dateFrom,
-      dateTo: dateTo ?? this.dateTo,
-      status: status ?? this.status,
-      staffId: staffId ?? this.staffId,
-    );
-  }
+  final String? search;
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is BookingsQuery &&
-          runtimeType == other.runtimeType &&
           dateFrom == other.dateFrom &&
           dateTo == other.dateTo &&
           status == other.status &&
-          staffId == other.staffId;
+          staffId == other.staffId &&
+          search == other.search;
 
   @override
-  int get hashCode => Object.hash(dateFrom, dateTo, status, staffId);
+  int get hashCode => Object.hash(dateFrom, dateTo, status, staffId, search);
 }
 
 final bookingDetailProvider = FutureProvider.autoDispose.family<Booking, int>((
   ref,
   id,
 ) async {
-  return ref.read(businessApiProvider).fetchBooking(id);
+  return ref.read(lingooRepositoryProvider).getBooking(id);
 });
 
 final branchDetailProvider = FutureProvider.autoDispose.family<Branch, int>((
   ref,
   id,
 ) async {
-  return ref.read(businessApiProvider).fetchBranch(id);
+  return ref.read(lingooRepositoryProvider).getBranch(id);
 });
 
 final serviceDetailProvider = FutureProvider.autoDispose
     .family<SalonService, int>((ref, id) async {
-      return ref.read(businessApiProvider).fetchService(id);
+      return ref.read(lingooRepositoryProvider).getService(id);
     });
 
 final staffDetailProvider = FutureProvider.autoDispose.family<StaffMember, int>(
   (ref, id) async {
-    return ref.read(businessApiProvider).fetchStaffMember(id);
+    return ref.read(lingooRepositoryProvider).getStaffMember(id);
   },
 );
+
+final staffScheduleProvider =
+    FutureProvider.autoDispose.family<StaffSchedule, int>((ref, staffId) async {
+  return ref.read(lingooRepositoryProvider).getStaffSchedule(staffId);
+});

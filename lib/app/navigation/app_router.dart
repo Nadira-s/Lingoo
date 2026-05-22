@@ -11,6 +11,7 @@ import '../ui/branches/branch_form_screen.dart';
 import '../ui/branches/branches_list_screen.dart';
 import '../ui/dashboard/dashboard_screen.dart';
 import '../ui/profile/access_management_screen.dart';
+import '../ui/profile/business_settings_screen.dart';
 import '../ui/profile/profile_form_screen.dart';
 import '../ui/profile/profile_screen.dart';
 import '../ui/services/service_form_screen.dart';
@@ -18,6 +19,7 @@ import '../ui/services/services_list_screen.dart';
 import 'main_shell.dart';
 import '../ui/staff/staff_form_screen.dart';
 import '../ui/staff/staff_list_screen.dart';
+import '../ui/staff/staff_schedule_screen.dart';
 
 final _routerRefresh = ValueNotifier<int>(0);
 
@@ -138,12 +140,23 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
+        path: '/staff/:id/schedule',
+        builder: (context, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+          return StaffScheduleScreen(staffId: id);
+        },
+      ),
+      GoRoute(
         path: '/profile/access',
         builder: (context, state) => const AccessManagementScreen(),
       ),
       GoRoute(
         path: '/profile/form',
         builder: (context, state) => const ProfileFormScreen(),
+      ),
+      GoRoute(
+        path: '/profile/business',
+        builder: (context, state) => const BusinessSettingsScreen(),
       ),
     ],
   );

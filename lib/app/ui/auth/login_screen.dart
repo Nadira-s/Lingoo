@@ -25,6 +25,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
+  String _loginErrorMessage(Object? err) {
+    if (err is ApiException) return err.userMessage;
+    if (err != null) {
+      final text = err.toString();
+      if (text.contains('PlatformException') &&
+          text.contains('security result code')) {
+        return 'Не удалось сохранить сессию. Перезапустите приложение.';
+      }
+      return text.length > 120 ? '${text.substring(0, 120)}…' : text;
+    }
+    return 'Неверный логин или пароль';
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
@@ -56,15 +69,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 400),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 0),
-              child: Form(
-                key: _formKey,
+            child: Form(
+              key: _formKey,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(0, 24, 0, 24),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.start,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const SizedBox(height: 100),
+                    const SizedBox(height: 48),
 
                     // Logo
                     Center(
@@ -100,7 +112,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                     // Subtitle
                     const Text(
-                      'Войдите в свой аккаунт',
+                      'Логин для mobile API — username из системы\n(например: test, не название салона)',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
@@ -256,38 +268,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       },
                     ),
 
-                    // Error + Forgot password row
+                    if (hasError) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        _loginErrorMessage(auth.error),
+                        softWrap: true,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFFE53935),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        if (hasError)
-                          Text(
-                            auth.error is ApiException
-                                ? (auth.error as ApiException).userMessage
-                                : 'Неверный логин или пароль',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: Color(0xFFE53935),
-                            ),
-                          )
-                        else
-                          const SizedBox.shrink(),
-                        GestureDetector(
-                          onTap: () {
-                            // TODO: navigate to forgot password
-                          },
-                          child: const Text(
-                            'Забыли пароль?',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: Color(0xFFC6A400),
-                            ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: GestureDetector(
+                        onTap: () {},
+                        child: const Text(
+                          'Забыли пароль?',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFFC6A400),
                           ),
                         ),
-                      ],
+                      ),
                     ),
 
                     const SizedBox(height: 24),
@@ -333,15 +339,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     const SizedBox(height: 150),
 
                     // Version
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 16),
-                      child: Text(
-                        'Версия 1.0.0',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFFB6B6B6),
-                        ),
+                    const Text(
+                      'Версия 1.0.0',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFFB6B6B6),
                       ),
                     ),
                   ],

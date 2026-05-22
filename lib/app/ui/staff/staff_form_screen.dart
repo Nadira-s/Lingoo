@@ -5,7 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../domain/model/staff_member.dart';
+import '../../domain/model/user_role.dart';
 import '../../catalog_providers.dart';
+import '../../di/app_providers.dart';
+import '../../utils/api_exception.dart';
 import '../widgets/components/app_ui_tokens.dart';
 import '../widgets/components/form_text_field.dart';
 import '../widgets/components/primary_button.dart';
@@ -21,12 +24,17 @@ class StaffFormScreen extends ConsumerStatefulWidget {
 
 class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _bodyKey = GlobalKey<_StaffFormBodyState>();
+  bool _saving = false;
 
-  void _onSave(BuildContext context) {
-    if (_formKey.currentState?.validate() ?? false) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Сохранено (демо-режим)')));
+  Future<void> _onSave(BuildContext context) async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      final ok = await _bodyKey.currentState?.submit() ?? false;
+      if (ok && context.mounted) Navigator.of(context).maybePop();
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -36,10 +44,13 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
     if (staffId == null) {
       return _StaffFormScaffold(
         title: 'Новый сотрудник',
-
-        formKey: _formKey,
+        saving: _saving,
         onSave: () => _onSave(context),
-        child: _StaffFormBody(formKey: _formKey, initial: null),
+        child: _StaffFormBody(
+          key: _bodyKey,
+          formKey: _formKey,
+          initial: null,
+        ),
       );
     }
 
@@ -53,9 +64,13 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
       ),
       data: (s) => _StaffFormScaffold(
         title: 'Редактирование',
-        formKey: _formKey,
+        saving: _saving,
         onSave: () => _onSave(context),
-        child: _StaffFormBody(formKey: _formKey, initial: s),
+        child: _StaffFormBody(
+          key: _bodyKey,
+          formKey: _formKey,
+          initial: s,
+        ),
       ),
     );
   }
@@ -64,15 +79,15 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
 class _StaffFormScaffold extends StatelessWidget {
   const _StaffFormScaffold({
     required this.title,
-    required this.formKey,
     required this.onSave,
     required this.child,
+    this.saving = false,
   });
 
   final String title;
-  final GlobalKey<FormState> formKey;
   final VoidCallback onSave;
   final Widget child;
+  final bool saving;
 
   @override
   Widget build(BuildContext context) {
@@ -90,15 +105,21 @@ class _StaffFormScaffold extends StatelessWidget {
         ),
         actions: [
           TextButton(
-            onPressed: onSave,
-            child: const Text(
-              'Сохранить',
-              style: TextStyle(
-                color: Color(0xFFFFCC00),
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-              ),
-            ),
+            onPressed: saving ? null : onSave,
+            child: saving
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text(
+                    'Сохранить',
+                    style: TextStyle(
+                      color: Color(0xFFFFCC00),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
           ),
         ],
       ),
@@ -108,7 +129,11 @@ class _StaffFormScaffold extends StatelessWidget {
 }
 
 class _StaffFormBody extends ConsumerStatefulWidget {
-  const _StaffFormBody({required this.formKey, required this.initial});
+  const _StaffFormBody({
+    super.key,
+    required this.formKey,
+    required this.initial,
+  });
 
   final GlobalKey<FormState> formKey;
   final StaffMember? initial;
@@ -119,19 +144,13 @@ class _StaffFormBody extends ConsumerStatefulWidget {
 
 class _StaffFormBodyState extends ConsumerState<_StaffFormBody> {
   late final TextEditingController _name;
-  late final TextEditingController _position;
   late final TextEditingController _phone;
   late final TextEditingController _email;
-  late String _apiRole;
+  late final TextEditingController _password;
   int? _branchId;
   late bool _active;
   File? _imageFile;
   final ImagePicker _imagePicker = ImagePicker();
-
-  static const _roles = <String, String>{
-    'MANAGER': 'Менеджер',
-    'STAFF': 'Сотрудник',
-  };
 
   static const _border = Color(0xFFB2AFAF);
 
@@ -160,11 +179,9 @@ class _StaffFormBodyState extends ConsumerState<_StaffFormBody> {
     super.initState();
     final i = widget.initial;
     _name = TextEditingController(text: i?.name ?? '');
-    _position = TextEditingController(text: i?.apiRole ?? '');
     _phone = TextEditingController(text: i?.phone ?? '');
     _email = TextEditingController(text: i?.email ?? '');
-    _apiRole = i?.apiRole.isNotEmpty == true ? i!.apiRole : 'MANAGER';
-    if (!_roles.containsKey(_apiRole)) _apiRole = 'MANAGER';
+    _password = TextEditingController();
     _branchId = i?.branchId;
     _active = i?.isActive ?? true;
   }
@@ -172,13 +189,77 @@ class _StaffFormBodyState extends ConsumerState<_StaffFormBody> {
   @override
   void dispose() {
     _name.dispose();
-    _position.dispose();
     _phone.dispose();
     _email.dispose();
+    _password.dispose();
     super.dispose();
   }
 
-  void _onDelete() {
+  StaffMember _buildDraft() {
+    return StaffMember(
+      id: widget.initial?.id ?? 0,
+      name: _name.text.trim(),
+      phone: _phone.text.trim(),
+      email: _email.text.trim(),
+      role: UserRole.manager,
+      apiRole: 'MANAGER',
+      branchId: _branchId,
+      branchName: '',
+      isActive: _active,
+    );
+  }
+
+  void _showError(Object e) {
+    final msg = e is ApiException
+        ? e.userMessage
+        : 'Не удалось выполнить операцию.';
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<bool> submit() async {
+    if (!(widget.formKey.currentState?.validate() ?? false)) return false;
+    final email = _email.text.trim();
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Укажите email сотрудника')),
+      );
+      return false;
+    }
+    final repo = ref.read(lingooRepositoryProvider);
+    final draft = _buildDraft();
+    final password = _password.text.trim();
+    try {
+      if (widget.initial == null) {
+        if (password.length < 4) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Укажите пароль для нового сотрудника')),
+          );
+          return false;
+        }
+        await repo.createStaff(draft, password: password);
+      } else {
+        await repo.updateStaff(
+          draft,
+          password: password.isNotEmpty ? password : null,
+        );
+      }
+      ref.invalidate(staffListProvider);
+      if (widget.initial != null) {
+        ref.invalidate(staffDetailProvider(widget.initial!.id));
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Сотрудник сохранён')),
+        );
+      }
+      return true;
+    } catch (e) {
+      _showError(e);
+      return false;
+    }
+  }
+
+  Future<void> _onDelete() async {
     if (widget.initial == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -187,28 +268,36 @@ class _StaffFormBodyState extends ConsumerState<_StaffFormBody> {
       );
       return;
     }
-    showDialog<void>(
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Удалить сотрудника?'),
-        content: const Text('Демо: запись не будет удалена.'),
+        content: const Text('Это действие нельзя отменить.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Отмена'),
           ),
           TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Демо: удаление не выполнено.')),
-              );
-            },
+            onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Удалить'),
           ),
         ],
       ),
     );
+    if (confirmed != true || !mounted) return;
+    try {
+      await ref.read(lingooRepositoryProvider).deleteStaff(widget.initial!.id);
+      ref.invalidate(staffListProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Сотрудник удалён')),
+        );
+        Navigator.of(context).maybePop();
+      }
+    } catch (e) {
+      _showError(e);
+    }
   }
 
   Future<void> _pickImage() async {
@@ -318,12 +407,6 @@ class _StaffFormBodyState extends ConsumerState<_StaffFormBody> {
                   ),
                   const SizedBox(height: 16),
                   FormTextField(
-                    controller: _position,
-                    labelText: 'Должность',
-                    hintText: 'Введите должность...',
-                  ),
-                  const SizedBox(height: 16),
-                  FormTextField(
                     controller: _phone,
                     labelText: 'Телефон',
                     hintText: 'Введите телефон...',
@@ -333,6 +416,18 @@ class _StaffFormBodyState extends ConsumerState<_StaffFormBody> {
                     controller: _email,
                     labelText: 'Email',
                     hintText: 'Введите email...',
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'Обязательное поле'
+                        : null,
+                  ),
+                  const SizedBox(height: 16),
+                  FormTextField(
+                    controller: _password,
+                    labelText: widget.initial == null
+                        ? 'Пароль'
+                        : 'Новый пароль (необязательно)',
+                    hintText: 'Введите пароль...',
+                    obscureText: true,
                   ),
                   const SizedBox(height: 16),
                   branches.when(
@@ -350,7 +445,7 @@ class _StaffFormBodyState extends ConsumerState<_StaffFormBody> {
                           ),
                           const SizedBox(height: 8),
                           DropdownButtonFormField<int?>(
-                            initialValue: _branchId,
+                            value: _branchId,
                             dropdownColor: Colors.white,
                             decoration: _dropdownDecoration(),
                             items: [
@@ -387,7 +482,7 @@ class _StaffFormBodyState extends ConsumerState<_StaffFormBody> {
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
-                        initialValue: _active ? 'active' : 'inactive',
+                        value: _active ? 'active' : 'inactive',
                         dropdownColor: Colors.white,
                         decoration: _dropdownDecoration(),
                         items: const [

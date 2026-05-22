@@ -12,6 +12,8 @@ class StaffMember {
     required this.branchId,
     required this.branchName,
     required this.isActive,
+    this.serviceIds = const [],
+    this.bufferMinutes = 0,
   });
 
   final int id;
@@ -24,6 +26,8 @@ class StaffMember {
   final int? branchId;
   final String branchName;
   final bool isActive;
+  final List<int> serviceIds;
+  final int bufferMinutes;
 
   factory StaffMember.fromJson(Map<String, dynamic> json) {
     final branch = asMap(json['branch']);
@@ -40,16 +44,26 @@ class StaffMember {
       branchId: readInt(json['branch_id']) ?? readInt(branch?['id']),
       branchName: branch != null ? readString(branch, 'name') : '',
       isActive: readBool(json, 'is_active', fallback: true),
+      serviceIds: _parseServiceIds(json['services']),
+      bufferMinutes: readInt(json['buffer_minutes']) ?? 0,
     );
   }
 
-  Map<String, dynamic> toCreateBody() => {
+  static List<int> _parseServiceIds(dynamic raw) {
+    if (raw is! List) return const [];
+    return raw
+        .map((e) => e is int ? e : (e is Map ? readInt(e['id']) : null))
+        .whereType<int>()
+        .toList();
+  }
+
+  Map<String, dynamic> toCreateBody({String? password}) => {
         'name': name,
-        if (phone.isNotEmpty) 'phone': phone,
-        if (email.isNotEmpty) 'email': email,
-        'role': apiRole,
-        if (branchId != null) 'branch_id': branchId,
-        if (branchId != null) 'branch': branchId,
+        'email': email,
+        if (password != null && password.isNotEmpty) 'password': password,
+        if (branchId != null) 'branches': [branchId],
+        if (serviceIds.isNotEmpty) 'services': serviceIds,
         'is_active': isActive,
+        if (bufferMinutes > 0) 'buffer_minutes': bufferMinutes,
       };
 }

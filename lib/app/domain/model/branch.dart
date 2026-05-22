@@ -29,7 +29,6 @@ class Branch {
   Map<String, dynamic> toCreateBody() => {
         'name': name,
         'address': address,
-        'phone': phone,
         'is_active': isActive,
       };
 }

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/model/branch.dart';
 import '../../catalog_providers.dart';
+import '../../di/app_providers.dart';
+import '../../utils/api_exception.dart';
 import '../widgets/components/form_text_field.dart';
 import '../widgets/components/primary_button.dart';
 
@@ -17,12 +19,17 @@ class BranchFormScreen extends ConsumerStatefulWidget {
 
 class _BranchFormScreenState extends ConsumerState<BranchFormScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _bodyKey = GlobalKey<_BranchFormBodyState>();
+  bool _saving = false;
 
-  void _onSave(BuildContext context) {
-    if (_formKey.currentState?.validate() ?? false) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Сохранено (демо-режим)')));
+  Future<void> _onSave(BuildContext context) async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      final ok = await _bodyKey.currentState?.submit() ?? false;
+      if (ok && context.mounted) Navigator.of(context).maybePop();
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -32,9 +39,13 @@ class _BranchFormScreenState extends ConsumerState<BranchFormScreen> {
     if (branchId == null) {
       return _FormScaffold(
         title: 'Новый филиал',
-        formKey: _formKey,
+        saving: _saving,
         onSave: () => _onSave(context),
-        child: _BranchFormBody(formKey: _formKey, initial: null),
+        child: _BranchFormBody(
+          key: _bodyKey,
+          formKey: _formKey,
+          initial: null,
+        ),
       );
     }
 
@@ -48,9 +59,13 @@ class _BranchFormScreenState extends ConsumerState<BranchFormScreen> {
       ),
       data: (b) => _FormScaffold(
         title: 'Редактирование',
-        formKey: _formKey,
+        saving: _saving,
         onSave: () => _onSave(context),
-        child: _BranchFormBody(formKey: _formKey, initial: b),
+        child: _BranchFormBody(
+          key: _bodyKey,
+          formKey: _formKey,
+          initial: b,
+        ),
       ),
     );
   }
@@ -59,15 +74,15 @@ class _BranchFormScreenState extends ConsumerState<BranchFormScreen> {
 class _FormScaffold extends StatelessWidget {
   const _FormScaffold({
     required this.title,
-    required this.formKey,
     required this.onSave,
     required this.child,
+    this.saving = false,
   });
 
   final String title;
-  final GlobalKey<FormState> formKey;
   final VoidCallback onSave;
   final Widget child;
+  final bool saving;
 
   @override
   Widget build(BuildContext context) {
@@ -85,15 +100,21 @@ class _FormScaffold extends StatelessWidget {
         ),
         actions: [
           TextButton(
-            onPressed: onSave,
-            child: const Text(
-              'Сохранить',
-              style: TextStyle(
-                color: Color(0xFFFFCC00),
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-              ),
-            ),
+            onPressed: saving ? null : onSave,
+            child: saving
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text(
+                    'Сохранить',
+                    style: TextStyle(
+                      color: Color(0xFFFFCC00),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
           ),
         ],
       ),
@@ -103,7 +124,11 @@ class _FormScaffold extends StatelessWidget {
 }
 
 class _BranchFormBody extends ConsumerStatefulWidget {
-  const _BranchFormBody({required this.formKey, required this.initial});
+  const _BranchFormBody({
+    super.key,
+    required this.formKey,
+    required this.initial,
+  });
 
   final GlobalKey<FormState> formKey;
   final Branch? initial;
@@ -138,7 +163,49 @@ class _BranchFormBodyState extends ConsumerState<_BranchFormBody> {
     super.dispose();
   }
 
-  void _onDelete() {
+  Branch _buildDraft() {
+    return Branch(
+      id: widget.initial?.id ?? 0,
+      name: _name.text.trim(),
+      address: _address.text.trim(),
+      phone: _phone.text.trim(),
+      isActive: _active,
+    );
+  }
+
+  void _showError(Object e) {
+    final msg = e is ApiException
+        ? e.userMessage
+        : 'Не удалось выполнить операцию.';
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<bool> submit() async {
+    if (!(widget.formKey.currentState?.validate() ?? false)) return false;
+    final repo = ref.read(lingooRepositoryProvider);
+    try {
+      if (widget.initial == null) {
+        await repo.createBranch(_buildDraft());
+      } else {
+        await repo.updateBranch(_buildDraft());
+      }
+      ref.invalidate(branchesListProvider);
+      if (widget.initial != null) {
+        ref.invalidate(branchDetailProvider(widget.initial!.id));
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Филиал сохранён')),
+        );
+      }
+      return true;
+    } catch (e) {
+      _showError(e);
+      return false;
+    }
+  }
+
+  Future<void> _onDelete() async {
     if (widget.initial == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -147,28 +214,36 @@ class _BranchFormBodyState extends ConsumerState<_BranchFormBody> {
       );
       return;
     }
-    showDialog<void>(
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Удалить филиал?'),
-        content: const Text('Демо: запись не будет удалена.'),
+        content: const Text('Это действие нельзя отменить.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Отмена'),
           ),
           TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Демо: удаление не выполнено.')),
-              );
-            },
+            onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Удалить'),
           ),
         ],
       ),
     );
+    if (confirmed != true || !mounted) return;
+    try {
+      await ref.read(lingooRepositoryProvider).deleteBranch(widget.initial!.id);
+      ref.invalidate(branchesListProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Филиал удалён')),
+        );
+        Navigator.of(context).maybePop();
+      }
+    } catch (e) {
+      _showError(e);
+    }
   }
 
   @override
@@ -218,7 +293,7 @@ class _BranchFormBodyState extends ConsumerState<_BranchFormBody> {
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
-                        initialValue: _active ? 'active' : 'inactive',
+                        value: _active ? 'active' : 'inactive',
                         dropdownColor: Colors.white,
                         decoration: InputDecoration(
                           filled: true,

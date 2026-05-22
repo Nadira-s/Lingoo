@@ -8,36 +8,23 @@ import '../widgets/components/bordered_toolbar_icon.dart';
 import '../widgets/cards/dashboard_stat_card.dart';
 import '../widgets/components/section_header.dart';
 import '../../auth_notifier.dart';
-import '../../catalog_providers.dart';
 import '../../dashboard_provider.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
-  static final _today = DateTime.now();
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authNotifierProvider).valueOrNull;
-    final stats = ref.watch(dashboardStatsProvider);
-
-    final todayBookings = ref.watch(
-      bookingsListProvider(
-        BookingsQuery(
-          dateFrom: DateTime(_today.year, _today.month, _today.day),
-          dateTo: DateTime(_today.year, _today.month, _today.day + 1),
-        ),
-      ),
-    );
+    final dashboard = ref.watch(dashboardDataProvider);
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
-            ref.invalidate(dashboardStatsProvider);
-            ref.invalidate(bookingsListProvider);
-            await ref.read(dashboardStatsProvider.future);
+            ref.invalidate(dashboardDataProvider);
+            await ref.read(dashboardDataProvider.future);
           },
           child: CustomScrollView(
             slivers: [
@@ -103,42 +90,42 @@ class DashboardScreen extends ConsumerWidget {
                   delegate: SliverChildListDelegate([
                     const SectionHeader('Статистика'),
                     const SizedBox(height: 16),
-                    stats.when(
-                      data: (d) => _StatsGrid(
-                        context: context,
-                        branches: d.branches,
-                        services: d.services,
-                        staff: d.staff,
-                        bookings: d.bookings,
-                      ),
+                    dashboard.when(
+                      data: (d) {
+                        final staffSub = d.staffLimit != null && d.staffLimit! > 0
+                            ? 'Лимит: ${d.staffUsed ?? d.stats.staff}/${d.staffLimit}'
+                            : 'Активные сотрудники';
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _StatsGrid(
+                              context: context,
+                              branches: d.stats.branches,
+                              services: d.stats.services,
+                              staff: d.stats.staff,
+                              bookings: d.stats.bookings,
+                              staffSubLabel: staffSub,
+                            ),
+                            const SizedBox(height: 32),
+                            const SectionHeader('Сегодняшние записи'),
+                            const SizedBox(height: 16),
+                            if (d.recentBookings.isEmpty)
+                              const Text('Записей на сегодня нет')
+                            else
+                              ...d.recentBookings.take(3).map(
+                                    (b) => BookingCard(
+                                      booking: b,
+                                      onTap: () =>
+                                          context.push('/bookings/${b.id}'),
+                                    ),
+                                  ),
+                          ],
+                        );
+                      },
                       loading: () =>
                           const Center(child: CircularProgressIndicator()),
                       error: (e, _) => Text(
                         'Ошибка статистики: $e',
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    const SectionHeader('Сегодняшние записи'),
-                    const SizedBox(height: 16),
-                    todayBookings.when(
-                      data: (items) => Column(
-                        children: items
-                            .take(3)
-                            .map(
-                              (b) => BookingCard(
-                                booking: b,
-                                onTap: () => context.push('/bookings/${b.id}'),
-                              ),
-                            )
-                            .toList(),
-                      ),
-                      loading: () =>
-                          const Center(child: CircularProgressIndicator()),
-                      error: (e, _) => Text(
-                        'Ошибка записей: $e',
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.error,
                         ),
@@ -175,6 +162,7 @@ class _StatsGrid extends StatelessWidget {
     required this.services,
     required this.staff,
     required this.bookings,
+    this.staffSubLabel = 'Активные сотрудники',
   });
 
   final BuildContext context;
@@ -182,6 +170,7 @@ class _StatsGrid extends StatelessWidget {
   final int services;
   final int staff;
   final int bookings;
+  final String staffSubLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -217,7 +206,7 @@ class _StatsGrid extends StatelessWidget {
           case 2:
             label = 'Сотрудники';
             value = staff;
-            subLabel = 'Активные сотрудники';
+            subLabel = staffSubLabel;
             onTap = () => context.go('/staff');
             break;
           case 3:

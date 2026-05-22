@@ -117,11 +117,8 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
                         return StaffListCard(
                           member: s,
                           onEdit: () => context.push('/staff/${s.id}/edit'),
-                          onSchedule: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Расписание: ${s.name}')),
-                            );
-                          },
+                          onSchedule: () =>
+                              context.push('/staff/${s.id}/schedule'),
                         );
                       },
                     ),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../auth_notifier.dart';
+import '../../data_providers.dart';
 import '../widgets/components/app_ui_tokens.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -11,6 +12,7 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authNotifierProvider).valueOrNull;
+    final tariff = ref.watch(tariffLimitsProvider);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -94,105 +96,102 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 20),
-          // Subscription Card
-          Text(
-            'Подписка',
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppUiTokens.primaryText,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(AppUiTokens.radiusLg),
-              border: Border.all(color: AppUiTokens.borderSubtle),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'План: Премиум',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                    color: AppUiTokens.primaryText,
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFD4EDDA),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Text(
-                    'Активна',
-                    style: TextStyle(
-                      color: Color(0xFF155724),
+          tariff.when(
+            data: (t) {
+              final plan = t.planName.isEmpty ? 'Тариф' : t.planName;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Подписка',
+                    style: const TextStyle(
+                      fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      fontSize: 12,
+                      color: AppUiTokens.primaryText,
                     ),
                   ),
-                ),
-              ],
-            ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(AppUiTokens.radiusLg),
+                      border: Border.all(color: AppUiTokens.borderSubtle),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'План: $plan',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
+                        ),
+                        if (t.usagePercent > 0)
+                          Text(
+                            '${t.usagePercent.toStringAsFixed(0)}%',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFFC6A400),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Лимит подписки',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppUiTokens.primaryText,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(AppUiTokens.radiusLg),
+                      border: Border.all(color: AppUiTokens.borderSubtle),
+                    ),
+                    child: Column(
+                      children: [
+                        if (t.items.isEmpty)
+                          const Text('Лимиты загружаются с API')
+                        else
+                          ...t.items.map(
+                            (item) => Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: _SubscriptionLimitItem(
+                                label: item.label,
+                                current: item.used,
+                                total: item.limit > 0 ? item.limit : 1,
+                              ),
+                            ),
+                          ),
+                        if (t.validUntil != null)
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Действует до ${t.validUntil}',
+                              style: const TextStyle(
+                                color: AppUiTokens.tertiaryText,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Text('Тариф: $e'),
           ),
           const SizedBox(height: 20),
-          // Subscription Limits
-          Text(
-            'Лимит подписки',
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppUiTokens.primaryText,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(AppUiTokens.radiusLg),
-              border: Border.all(color: AppUiTokens.borderSubtle),
-            ),
-            child: Column(
-              children: [
-                _SubscriptionLimitItem(label: 'Филиалы', current: 3, total: 5),
-                const SizedBox(height: 16),
-                _SubscriptionLimitItem(
-                  label: 'Сотрудники',
-                  current: 12,
-                  total: 20,
-                ),
-                const SizedBox(height: 16),
-                _SubscriptionLimitItem(label: 'Услуги', current: 24, total: 50),
-                const SizedBox(height: 16),
-                _SubscriptionLimitItem(
-                  label: 'Записи в месяц',
-                  current: 248,
-                  total: 1000,
-                ),
-                const SizedBox(height: 16),
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Действует до 24.05.2026',
-                    style: TextStyle(
-                      color: AppUiTokens.tertiaryText,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
           const SizedBox(height: 20),
           // Menu Items
           Container(
@@ -207,6 +206,12 @@ class ProfileScreen extends ConsumerWidget {
                   icon: Icons.people_outline,
                   title: 'Управление доступами',
                   onTap: () => context.push('/profile/access'),
+                ),
+                const Divider(height: 1),
+                _ProfileMenuItem(
+                  icon: Icons.store_outlined,
+                  title: 'Настройки бизнеса',
+                  onTap: () => context.push('/profile/business'),
                 ),
                 const Divider(height: 1),
                 _ProfileMenuItem(
