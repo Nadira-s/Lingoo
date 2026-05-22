@@ -8,12 +8,14 @@ class UserProfile {
     required this.id,
     required this.username,
     required this.role,
+    this.email = '',
     this.tenant,
     this.staffProfile,
   });
 
   final int id;
   final String username;
+  final String email;
   final UserRole role;
   final Tenant? tenant;
   final StaffMember? staffProfile;
@@ -25,6 +27,7 @@ class UserProfile {
       username: readString(json, 'username').isEmpty
           ? readString(json, 'login')
           : readString(json, 'username'),
+      email: readString(json, 'email'),
       role: UserRole.fromApi(
         json['role'] as String? ??
             json['role_name'] as String? ??

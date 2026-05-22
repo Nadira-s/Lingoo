@@ -8,6 +8,7 @@ import '../../di/app_providers.dart';
 import '../../utils/api_exception.dart';
 import '../widgets/components/app_ui_tokens.dart';
 import '../widgets/components/booking_status_badge.dart';
+import '../widgets/components/status_outline_button.dart';
 
 class BookingDetailScreen extends ConsumerWidget {
   const BookingDetailScreen({super.key, required this.bookingId});
@@ -166,6 +167,32 @@ class _BookingDetailContentState extends ConsumerState<_BookingDetailContent> {
           ? e.userMessage
           : 'Не удалось сохранить изменения.';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _applyStatus(String status) async {
+    setState(() {
+      _saving = true;
+      _status = status;
+    });
+    try {
+      await ref
+          .read(lingooRepositoryProvider)
+          .updateBookingStatus(widget.booking.id, status);
+      ref.invalidate(bookingDetailProvider(widget.booking.id));
+      ref.invalidate(bookingsListProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Статус обновлён')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        final msg = e is ApiException ? e.userMessage : 'Ошибка';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -398,7 +425,36 @@ class _BookingDetailContentState extends ConsumerState<_BookingDetailContent> {
             ),
           ),
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 24),
+        const Text(
+          'Изменить статус',
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            fontSize: 16,
+          ),
+        ),
+        const SizedBox(height: 12),
+        StatusOutlineButton(
+          label: 'Подтвердить',
+          color: const Color(0xFF1B7A3D),
+          loading: _saving,
+          onPressed: () => _applyStatus('CONFIRMED'),
+        ),
+        const SizedBox(height: 10),
+        StatusOutlineButton(
+          label: 'Отменить',
+          color: const Color(0xFFC62828),
+          loading: _saving,
+          onPressed: () => _applyStatus('CANCELLED'),
+        ),
+        const SizedBox(height: 10),
+        StatusOutlineButton(
+          label: 'Завершить',
+          color: const Color(0xFF0B57D0),
+          loading: _saving,
+          onPressed: () => _applyStatus('COMPLETED'),
+        ),
+        const SizedBox(height: 20),
         SizedBox(
           width: double.infinity,
           height: 56,

@@ -8,9 +8,11 @@ import '../force_logout.dart';
 import '../ui/auth/login_screen.dart';
 import '../ui/bookings/booking_detail_screen.dart';
 import '../ui/bookings/bookings_list_screen.dart';
+import '../ui/bookings/bookings_schedule_screen.dart';
 import '../ui/branches/branch_form_screen.dart';
 import '../ui/branches/branches_list_screen.dart';
 import '../ui/dashboard/dashboard_screen.dart';
+import '../ui/notifications/notifications_screen.dart';
 import '../ui/profile/access_management_screen.dart';
 import '../ui/profile/business_settings_screen.dart';
 import '../ui/profile/profile_form_screen.dart';
@@ -84,6 +86,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/bookings',
             builder: (context, state) => const BookingsListScreen(),
+          ),
+          GoRoute(
+            path: '/bookings/schedule',
+            builder: (context, state) => const BookingsScheduleScreen(),
           ),
           GoRoute(
             path: '/bookings/:id',
@@ -162,6 +168,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/profile/business',
         builder: (context, state) => const BusinessSettingsScreen(),
+      ),
+      GoRoute(
+        path: '/notifications',
+        builder: (context, state) => const NotificationsScreen(),
       ),
     ],
   );

@@ -1,97 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../access_providers.dart';
+import '../../auth_notifier.dart';
+import '../../catalog_providers.dart';
 import '../widgets/cards/access_list_card.dart';
 import '../widgets/components/app_bar_add_button.dart';
 import '../widgets/components/app_ui_tokens.dart';
 
-/// Демо-пользователь для списка доступов.
-class AccessUserRow {
-  const AccessUserRow({
-    required this.name,
-    required this.email,
-    required this.role,
-    required this.active,
-  });
-
-  final String name;
-  final String email;
-  final String role;
-  final bool active;
-}
-
-/// Демо-роль.
-class AccessRoleRow {
-  const AccessRoleRow({
-    required this.name,
-    required this.description,
-    required this.active,
-  });
-
-  final String name;
-  final String description;
-  final bool active;
-}
-
-/// Управление доступами: AppBar и вкладки в стиле [BookingsListScreen].
-class AccessManagementScreen extends StatefulWidget {
+/// Управление доступами: текущий админ + сотрудники с учётными записями (API).
+class AccessManagementScreen extends ConsumerStatefulWidget {
   const AccessManagementScreen({super.key});
 
-  static const _users = <AccessUserRow>[
-    AccessUserRow(
-      name: 'Анна Петрова',
-      email: 'admin123@mail.ru',
-      role: 'Администратор',
-      active: true,
-    ),
-    AccessUserRow(
-      name: 'Иван Сидоров',
-      email: 'ivansid@mail.ru',
-      role: 'Менеджер',
-      active: false,
-    ),
-    AccessUserRow(
-      name: 'Мария Ивановна',
-      email: 'marya777@gmail.com',
-      role: 'Менеджер',
-      active: true,
-    ),
-    AccessUserRow(
-      name: 'Дмитрий Колканов',
-      email: 'kolkanov@mail.ru',
-      role: 'Менеджер',
-      active: false,
-    ),
-  ];
-
-  static const _roles = <AccessRoleRow>[
-    AccessRoleRow(
-      name: 'Администратор',
-      description: 'Полный доступ ко всем разделам',
-      active: true,
-    ),
-    AccessRoleRow(
-      name: 'Менеджер',
-      description: 'Записи, сотрудники, услуги',
-      active: true,
-    ),
-    AccessRoleRow(
-      name: 'Сотрудник',
-      description: 'Только собственное расписание',
-      active: true,
-    ),
-  ];
-
   @override
-  State<AccessManagementScreen> createState() => _AccessManagementScreenState();
+  ConsumerState<AccessManagementScreen> createState() =>
+      _AccessManagementScreenState();
 }
 
-class _AccessManagementScreenState extends State<AccessManagementScreen> {
+class _AccessManagementScreenState extends ConsumerState<AccessManagementScreen> {
   int _tab = 0;
   static const _tabs = ['Пользователи', 'Роли'];
 
   @override
   Widget build(BuildContext context) {
+    final usersAsync = ref.watch(accessUsersProvider);
+    final isAdmin =
+        ref.watch(authNotifierProvider).valueOrNull?.role.isTenantAdmin ?? false;
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -113,16 +49,13 @@ class _AccessManagementScreenState extends State<AccessManagementScreen> {
           ),
         ),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: AppBarAddButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Добавление (скоро)')),
-                );
-              },
+          if (isAdmin && _tab == 0)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: AppBarAddButton(
+                onPressed: () => context.push('/staff/new'),
+              ),
             ),
-          ),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
@@ -175,52 +108,201 @@ class _AccessManagementScreenState extends State<AccessManagementScreen> {
           ),
         ),
       ),
-      body: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-        itemCount: _tab == 0
-            ? AccessManagementScreen._users.length
-            : AccessManagementScreen._roles.length,
-        separatorBuilder: (context, index) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          if (_tab == 0) {
-            final u = AccessManagementScreen._users[index];
-            return AccessListCard(
-              title: u.name,
-              secondaryLine: u.email,
-              tertiaryLine: u.role,
-              isActive: u.active,
-              leading: AccessListAvatar(name: u.name),
-              onTap: () {
-                context.push('/profile/form');
+      body: _tab == 0
+          ? RefreshIndicator(
+              onRefresh: () async {
+                ref.invalidate(accessUsersProvider);
+                ref.invalidate(staffListProvider);
+                await ref.read(accessUsersProvider.future);
               },
-            );
-          }
-          final r = AccessManagementScreen._roles[index];
-          return AccessListCard(
-            title: r.name,
-            secondaryLine: r.description,
-            tertiaryLine: '',
-            isActive: r.active,
-            leading: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: ColoredBox(
-                color: const Color(0xFFE8E0FF),
-                child: const Center(
-                  child: Icon(
-                    Icons.shield_outlined,
-                    color: AppUiTokens.primaryText,
-                    size: 28,
-                  ),
+              child: usersAsync.when(
+                loading: () => ListView(
+                  children: const [
+                    SizedBox(height: 120),
+                    Center(child: CircularProgressIndicator()),
+                  ],
                 ),
+                error: (e, _) => ListView(
+                  children: [
+                    const SizedBox(height: 80),
+                    Center(child: Text('Ошибка: $e')),
+                  ],
+                ),
+                data: (users) {
+                  if (users.isEmpty) {
+                    return ListView(
+                      children: const [
+                        SizedBox(height: 80),
+                        Center(child: Text('Нет пользователей')),
+                      ],
+                    );
+                  }
+                  return ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                    itemCount: users.length + 1,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      if (index == 0) {
+                        return _InfoBanner(
+                          text: isAdmin
+                              ? 'Менеджеров добавляют как сотрудников с email и '
+                                  'паролем — они смогут войти в приложение и '
+                                  'работать с записями.'
+                              : 'Список учётных записей вашего салона.',
+                        );
+                      }
+                      final u = users[index - 1];
+                      return AccessListCard(
+                        title: u.isYou ? '${u.name} (вы)' : u.name,
+                        secondaryLine:
+                            u.email.isNotEmpty ? u.email : 'Email не указан',
+                        tertiaryLine: u.roleLabel,
+                        isActive: u.isActive,
+                        leading: AccessListAvatar(name: u.name),
+                        onTap: () {
+                          if (u.staffId != null) {
+                            context.push('/staff/${u.staffId}/edit');
+                            return;
+                          }
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Это ваша учётная запись администратора. '
+                                'Настройки салона — в «Настройки бизнеса».',
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
+            )
+          : ListView.separated(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+              itemCount: accessRolesCatalog.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final r = accessRolesCatalog[index];
+                return AccessListCard(
+                  title: r.title,
+                  secondaryLine: r.apiCode,
+                  tertiaryLine: r.description,
+                  isActive: true,
+                  activeLabel: 'В системе',
+                  inactiveLabel: '',
+                  leading: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: ColoredBox(
+                      color: const Color(0xFFE8E0FF),
+                      child: Center(
+                        child: Icon(
+                          r.apiCode == 'TENANT_ADMIN'
+                              ? Icons.admin_panel_settings_outlined
+                              : Icons.badge_outlined,
+                          color: AppUiTokens.primaryText,
+                          size: 28,
+                        ),
+                      ),
+                    ),
+                  ),
+                  onTap: () {
+                    showModalBottomSheet<void>(
+                      context: context,
+                      backgroundColor: Colors.white,
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(16),
+                        ),
+                      ),
+                      builder: (ctx) => Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              r.title,
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              r.description,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                color: AppUiTokens.secondaryText,
+                                height: 1.4,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              r.howToCreate,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                height: 1.4,
+                              ),
+                            ),
+                            if (r.apiCode == 'MANAGER' && isAdmin) ...[
+                              const SizedBox(height: 20),
+                              SizedBox(
+                                width: double.infinity,
+                                child: FilledButton(
+                                  onPressed: () {
+                                    Navigator.pop(ctx);
+                                    context.push('/staff/new');
+                                  },
+                                  child: const Text('Добавить менеджера'),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+    );
+  }
+}
+
+class _InfoBanner extends StatelessWidget {
+  const _InfoBanner({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF8D6),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFFE082)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline, color: Color(0xFFC6A400), size: 22),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: AppUiTokens.primaryText,
+                height: 1.35,
               ),
             ),
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Роль: ${r.name}')),
-              );
-            },
-          );
-        },
+          ),
+        ],
       ),
     );
   }

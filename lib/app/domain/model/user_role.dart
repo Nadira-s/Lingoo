@@ -15,8 +15,14 @@ enum UserRole {
   bool get isManager => this == UserRole.manager;
 
   String get displayRu => switch (this) {
+        UserRole.tenantAdmin => 'Администратор арендатора',
+        UserRole.manager => 'Менеджер',
+        UserRole.unknown => 'Сотрудник',
+      };
+
+  String get apiCode => switch (this) {
         UserRole.tenantAdmin => 'TENANT_ADMIN',
         UserRole.manager => 'MANAGER',
-        UserRole.unknown => '—',
+        UserRole.unknown => 'STAFF',
       };
 }

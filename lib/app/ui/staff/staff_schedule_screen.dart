@@ -6,7 +6,6 @@ import '../../domain/model/staff_schedule.dart';
 import '../../di/app_providers.dart';
 import '../../utils/api_exception.dart';
 import '../widgets/components/app_ui_tokens.dart';
-
 class StaffScheduleScreen extends ConsumerStatefulWidget {
   const StaffScheduleScreen({super.key, required this.staffId});
 
@@ -28,19 +27,28 @@ class _StaffScheduleScreenState extends ConsumerState<StaffScheduleScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Расписание'),
+        title: const Text(
+          'Расписание',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
         backgroundColor: Colors.white,
         foregroundColor: AppUiTokens.primaryText,
         actions: [
           TextButton(
-            onPressed: _saving ? null : () => _save(),
+            onPressed: _saving ? null : _save,
             child: _saving
                 ? const SizedBox(
                     width: 18,
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Сохранить'),
+                : const Text(
+                    'Сохранить',
+                    style: TextStyle(
+                      color: Color(0xFFFFCC00),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
           ),
         ],
       ),
@@ -51,68 +59,96 @@ class _StaffScheduleScreenState extends ConsumerState<StaffScheduleScreen> {
           if (_days.isEmpty && schedule.days.isNotEmpty) {
             _days = List.of(schedule.days);
           } else if (_days.isEmpty) {
-            _days = List.generate(7, (i) => StaffScheduleDay(
-                  weekday: i,
-                  weekdayName: _weekdayName(i),
-                  isWorking: i < 5,
-                  startTime: '09:00:00',
-                  endTime: '18:00:00',
-                ));
+            _days = List.generate(
+              7,
+              (i) => StaffScheduleDay(
+                weekday: i,
+                weekdayName: _weekdayName(i),
+                isWorking: i < 5,
+                startTime: '09:00:00',
+                endTime: '18:00:00',
+              ),
+            );
           }
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: _days.length,
-            itemBuilder: (context, index) {
-              final day = _days[index];
-              return Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              day.weekdayName.isEmpty
-                                  ? _weekdayName(day.weekday)
-                                  : day.weekdayName,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            children: [
+              const Text(
+                'Рабочие дни и перерывы (неделя)',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppUiTokens.secondaryText,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ...List.generate(_days.length, (index) {
+                final day = _days[index];
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(AppUiTokens.radiusLg),
+                    border: Border.all(color: AppUiTokens.borderSubtle),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                day.weekdayName.isEmpty
+                                    ? _weekdayName(day.weekday)
+                                    : day.weekdayName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 16,
+                                ),
                               ),
                             ),
-                          ),
-                          Switch(
-                            value: day.isWorking,
-                            onChanged: (v) => setState(() {
-                              _days[index] = StaffScheduleDay(
-                                weekday: day.weekday,
-                                weekdayName: day.weekdayName,
-                                isWorking: v,
-                                startTime: day.startTime,
-                                endTime: day.endTime,
-                                breakStart: day.breakStart,
-                                breakEnd: day.breakEnd,
-                              );
-                            }),
-                          ),
-                        ],
-                      ),
-                      if (day.isWorking) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          '${day.startTime ?? "09:00"} — ${day.endTime ?? "18:00"}',
-                          style: const TextStyle(
-                            color: AppUiTokens.secondaryText,
-                          ),
+                            Switch(
+                              value: day.isWorking,
+                              activeColor: const Color(0xFFFFCC00),
+                              onChanged: (v) => setState(() {
+                                _days[index] = StaffScheduleDay(
+                                  weekday: day.weekday,
+                                  weekdayName: day.weekdayName,
+                                  isWorking: v,
+                                  startTime: day.startTime,
+                                  endTime: day.endTime,
+                                  breakStart: day.breakStart,
+                                  breakEnd: day.breakEnd,
+                                );
+                              }),
+                            ),
+                          ],
                         ),
+                        if (day.isWorking) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            '${_shortTime(day.startTime)} — ${_shortTime(day.endTime)}',
+                            style: const TextStyle(
+                              color: AppUiTokens.secondaryText,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (day.breakStart != null && day.breakEnd != null)
+                            Text(
+                              'Перерыв: ${_shortTime(day.breakStart)} — ${_shortTime(day.breakEnd)}',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: AppUiTokens.tertiaryText,
+                              ),
+                            ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
-              );
-            },
+                );
+              }),
+            ],
           );
         },
       ),
@@ -122,6 +158,11 @@ class _StaffScheduleScreenState extends ConsumerState<StaffScheduleScreen> {
   String _weekdayName(int i) {
     const names = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
     return i >= 0 && i < names.length ? names[i] : '$i';
+  }
+
+  String _shortTime(String? t) {
+    if (t == null || t.isEmpty) return '—';
+    return t.length >= 5 ? t.substring(0, 5) : t;
   }
 
   Future<void> _save() async {

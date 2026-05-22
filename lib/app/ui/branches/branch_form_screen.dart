@@ -3,9 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/model/branch.dart';
 import '../../catalog_providers.dart';
+import '../../dashboard_provider.dart';
 import '../../di/app_providers.dart';
 import '../../utils/api_exception.dart';
+import '../../utils/phone_format.dart';
 import '../widgets/components/form_text_field.dart';
+import '../widgets/components/phone_text_field.dart';
 import '../widgets/components/primary_button.dart';
 
 class BranchFormScreen extends ConsumerStatefulWidget {
@@ -168,7 +171,7 @@ class _BranchFormBodyState extends ConsumerState<_BranchFormBody> {
       id: widget.initial?.id ?? 0,
       name: _name.text.trim(),
       address: _address.text.trim(),
-      phone: _phone.text.trim(),
+      phone: PhoneFormat.forApi(_phone.text),
       isActive: _active,
     );
   }
@@ -190,6 +193,7 @@ class _BranchFormBodyState extends ConsumerState<_BranchFormBody> {
         await repo.updateBranch(_buildDraft());
       }
       ref.invalidate(branchesListProvider);
+      ref.invalidate(dashboardDataProvider);
       if (widget.initial != null) {
         ref.invalidate(branchDetailProvider(widget.initial!.id));
       }
@@ -274,10 +278,9 @@ class _BranchFormBodyState extends ConsumerState<_BranchFormBody> {
                     hintText: 'Введите адрес...',
                   ),
                   const SizedBox(height: 16),
-                  FormTextField(
+                  PhoneTextField(
                     controller: _phone,
                     labelText: 'Телефон',
-                    hintText: 'Введите телефон...',
                   ),
                   const SizedBox(height: 16),
                   Column(

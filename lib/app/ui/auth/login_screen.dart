@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../utils/api_exception.dart';
 import '../../auth_notifier.dart';
+import '../widgets/components/password_text_field.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -16,7 +17,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _userCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  bool _obscure = true;
 
   @override
   void dispose() {
@@ -188,80 +188,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Password field label
-                    const Text(
-                      'Пароль',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-
-                    // Password field
-                    TextFormField(
+                    PasswordTextField(
                       controller: _passCtrl,
-                      obscureText: _obscure,
+                      labelText: 'Пароль',
+                      hasError: hasError,
                       onFieldSubmitted: (_) => loading ? null : _submit(),
-                      autofillHints: const [AutofillHints.password],
-                      style: const TextStyle(fontSize: 15, color: Colors.black),
-                      decoration: InputDecoration(
-                        hintText: 'Введите пароль',
-                        hintStyle: const TextStyle(
-                          color: Color(0xFFBDBDBD),
-                          fontSize: 15,
-                        ),
-                        filled: true,
-                        fillColor: Colors.white,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 14,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(
-                            color: hasError
-                                ? const Color(0xFFE53935)
-                                : const Color(0xFFE0E0E0),
-                            width: 1,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(
-                            color: hasError
-                                ? const Color(0xFFE53935)
-                                : Colors.black,
-                            width: 1.5,
-                          ),
-                        ),
-                        errorBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFE53935),
-                            width: 1,
-                          ),
-                        ),
-                        focusedErrorBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFE53935),
-                            width: 1.5,
-                          ),
-                        ),
-                        errorStyle: const TextStyle(height: 0, fontSize: 0),
-                        suffixIcon: IconButton(
-                          onPressed: () => setState(() => _obscure = !_obscure),
-                          icon: Icon(
-                            _obscure
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
-                            color: Colors.black,
-                            size: 22,
-                          ),
-                        ),
-                      ),
                       validator: (v) {
                         if (v == null || v.isEmpty) return '';
                         return null;

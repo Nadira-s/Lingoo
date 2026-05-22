@@ -74,25 +74,28 @@ class LingooApiClient extends ApiClient {
             .map((e) => Booking.fromJson(Map<String, dynamic>.from(e)))
             .toList()
         : <Booking>[];
+    final tenant = asMap(map['tenant']);
     return DashboardData(
       stats: DashboardStats(
-        branches:
-            _readCount(map, ['branch_count', 'branches', 'branches_count']),
-        services:
-            _readCount(map, ['service_count', 'services', 'services_count']),
-        staff: _readCount(map, ['staff_count', 'staff']),
-        bookings: _readCount(map, [
-          'bookings_today',
-          'bookings_today_count',
-          'today_bookings',
-          'bookings',
-        ]),
+        branches: readInt(map['branch_count']) ??
+            _readCount(map, ['branches', 'branches_count']),
+        services: readInt(map['service_count']) ??
+            readInt(map['services_count']) ??
+            0,
+        staff: readInt(map['staff_count']) ?? 0,
+        bookings: readInt(map['today_bookings_count']) ??
+            _readCount(map, [
+              'bookings_today',
+              'bookings_today_count',
+              'today_bookings',
+              'bookings',
+            ]),
       ),
       recentBookings: recent,
-      staffUsed: readInt(map['staff_used']) ?? readInt(map['staff_count']),
-      staffLimit: readInt(map['staff_limit']) ??
-          readInt(map['staff_limit_max']) ??
-          readInt(map['staff_limit_usage']),
+      staffUsed: readInt(map['staff_count']),
+      staffLimit: readInt(tenant?['max_staff']) ??
+          readInt(map['staff_limit']) ??
+          readInt(map['staff_limit_max']),
     );
   }
 
@@ -238,7 +241,7 @@ class LingooApiClient extends ApiClient {
   Future<StaffMember> createStaff(StaffMember draft, {String? password}) async {
     final res = await post(
       ApiEndpoints.staff,
-      data: draft.toCreateBody(password: password),
+      data: draft.toApiBody(password: password),
     );
     return StaffMember.fromJson(parseEntityMap(res.data));
   }
@@ -246,7 +249,7 @@ class LingooApiClient extends ApiClient {
   Future<StaffMember> updateStaff(StaffMember s, {String? password}) async {
     final res = await patch(
       ApiEndpoints.staffMember(s.id),
-      data: s.toCreateBody(password: password),
+      data: s.toApiBody(password: password),
     );
     return StaffMember.fromJson(parseEntityMap(res.data));
   }

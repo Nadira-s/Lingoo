@@ -27,6 +27,10 @@ String mapDioExceptionToUserMessage(DioException e) {
         return 'Учётная запись не является администратором арендатора для мобильного API. '
             'Попросите платформу выдать TENANT_ADMIN или активировать роль для этого логина.';
       }
+      if (msg.contains('Invalid pk')) {
+        return 'Сервер не может привязать филиал или услугу к сотруднику. '
+            'Это ошибка API на сервере — передайте администратору платформы.';
+      }
       return msg;
     }
     return 'Ошибка валидации данных.';
@@ -73,7 +77,12 @@ ApiException apiExceptionFromDio(DioException e) {
 String? _messageFromBody(dynamic data) {
   if (data is Map) {
     final m = data['message'];
-    if (m is String && m.isNotEmpty) return _cleanApiMessage(m);
+    final base = m is String && m.isNotEmpty ? _cleanApiMessage(m) : null;
+    final fieldHint = _formatFieldErrors(data['errors']);
+    if (base != null && fieldHint != null) return '$base $fieldHint';
+    if (base != null) return base;
+    if (fieldHint != null) return fieldHint;
+
     final detail = data['detail'];
     if (detail is String && detail.isNotEmpty) return detail;
     if (detail is List && detail.isNotEmpty) {
@@ -83,6 +92,20 @@ String? _messageFromBody(dynamic data) {
     }
   }
   return null;
+}
+
+String? _formatFieldErrors(dynamic errors) {
+  if (errors is! Map || errors.isEmpty) return null;
+  final parts = <String>[];
+  for (final entry in errors.entries) {
+    final v = entry.value;
+    if (v is List && v.isNotEmpty) {
+      parts.add('${entry.key}: ${v.first}');
+    } else if (v != null) {
+      parts.add('${entry.key}: $v');
+    }
+  }
+  return parts.isEmpty ? null : '(${parts.join('; ')})';
 }
 
 String _cleanApiMessage(String raw) {

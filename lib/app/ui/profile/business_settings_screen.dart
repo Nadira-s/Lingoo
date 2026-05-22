@@ -5,7 +5,9 @@ import '../../data_providers.dart';
 import '../../domain/model/business_settings.dart';
 import '../../di/app_providers.dart';
 import '../../utils/api_exception.dart';
+import '../../utils/phone_format.dart';
 import '../widgets/components/form_text_field.dart';
+import '../widgets/components/phone_text_field.dart';
 import '../widgets/components/primary_button.dart';
 
 /// Настройки бизнеса — Screen Map §10.
@@ -41,7 +43,7 @@ class _BusinessSettingsScreenState extends ConsumerState<BusinessSettingsScreen>
     if (_loaded) return;
     _name.text = s.name;
     _description.text = s.description;
-    _phone.text = s.phone;
+    PhoneFormat.applyToController(_phone, s.phone);
     _email.text = s.email;
     _currency.text = s.currency;
     _loaded = true;
@@ -54,7 +56,7 @@ class _BusinessSettingsScreenState extends ConsumerState<BusinessSettingsScreen>
       final draft = BusinessSettings(
         name: _name.text.trim(),
         description: _description.text.trim(),
-        phone: _phone.text.trim(),
+        phone: PhoneFormat.forApi(_phone.text),
         email: _email.text.trim(),
         currency: _currency.text.trim(),
       );
@@ -112,10 +114,9 @@ class _BusinessSettingsScreenState extends ConsumerState<BusinessSettingsScreen>
                     maxLines: 3,
                   ),
                   const SizedBox(height: 16),
-                  FormTextField(
+                  PhoneTextField(
                     controller: _phone,
                     labelText: 'Телефон',
-                    hintText: '+7 ...',
                   ),
                   const SizedBox(height: 16),
                   FormTextField(

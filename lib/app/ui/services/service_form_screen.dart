@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/model/salon_service.dart';
 import '../../catalog_providers.dart';
+import '../../dashboard_provider.dart';
 import '../../di/app_providers.dart';
 import '../../utils/api_exception.dart';
 import '../widgets/components/form_text_field.dart';
@@ -198,6 +199,7 @@ class _ServiceFormBodyState extends ConsumerState<_ServiceFormBody> {
         await repo.updateService(draft);
       }
       ref.invalidate(servicesListProvider);
+      ref.invalidate(dashboardDataProvider);
       if (widget.initial != null) {
         ref.invalidate(serviceDetailProvider(widget.initial!.id));
       }

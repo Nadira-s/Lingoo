@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../catalog_providers.dart';
 import '../../data_providers.dart';
 import '../../domain/model/booking.dart';
+import '../../domain/model/booking_stats.dart';
 import '../widgets/components/app_ui_tokens.dart';
 import '../widgets/cards/booking_card.dart';
 import '../widgets/lists/search_field.dart';
@@ -19,16 +20,25 @@ class BookingsListScreen extends ConsumerStatefulWidget {
 
 class _BookingsListScreenState extends ConsumerState<BookingsListScreen> {
   int _activeTab = 0;
-  final List<String> _tabs = ['Все', 'Новые', 'Подтвержденные', 'Завершенные'];
   final _searchController = TextEditingController();
   String _searchQuery = '';
 
-  String? get _statusFilter => switch (_activeTab) {
-        1 => 'NEW',
-        2 => 'CONFIRMED',
-        3 => 'COMPLETED',
-        _ => null,
-      };
+  static const _tabDefs = [
+    _BookingTab(label: 'Все', status: null, statsKey: _StatsKey.total),
+    _BookingTab(label: 'Новые', status: 'NEW', statsKey: _StatsKey.newCount),
+    _BookingTab(
+      label: 'Подтвержденные',
+      status: 'CONFIRMED',
+      statsKey: _StatsKey.confirmed,
+    ),
+    _BookingTab(
+      label: 'Завершенные',
+      status: 'COMPLETED',
+      statsKey: _StatsKey.completed,
+    ),
+  ];
+
+  String? get _statusFilter => _tabDefs[_activeTab].status;
 
   BookingsQuery get _query => BookingsQuery(
         status: _statusFilter,
@@ -53,10 +63,22 @@ class _BookingsListScreenState extends ConsumerState<BookingsListScreen> {
     super.dispose();
   }
 
+  String _tabTitle(_BookingTab tab, BookingStats? stats) {
+    if (stats == null) return tab.label;
+    final count = switch (tab.statsKey) {
+      _StatsKey.total => stats.total,
+      _StatsKey.newCount => stats.newCount,
+      _StatsKey.confirmed => stats.confirmed,
+      _StatsKey.completed => stats.completed,
+    };
+    return '${tab.label} ($count)';
+  }
+
   @override
   Widget build(BuildContext context) {
     final bookingsAsync = ref.watch(bookingsListProvider(_query));
     final statsAsync = ref.watch(bookingsStatsProvider);
+    final stats = statsAsync.valueOrNull;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -73,6 +95,15 @@ class _BookingsListScreenState extends ConsumerState<BookingsListScreen> {
             fontWeight: FontWeight.w800,
           ),
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Расписание',
+            onPressed: () => context.push('/bookings/schedule'),
+            icon: const Icon(Icons.calendar_month_outlined),
+            color: AppUiTokens.primaryText,
+          ),
+          const SizedBox(width: 8),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(56),
           child: Padding(
@@ -86,29 +117,14 @@ class _BookingsListScreenState extends ConsumerState<BookingsListScreen> {
       ),
       body: Column(
         children: [
-          statsAsync.when(
-            data: (s) => Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-              child: Row(
-                children: [
-                  _StatChip(label: 'Всего', value: s.total),
-                  const SizedBox(width: 8),
-                  _StatChip(label: 'Сегодня', value: s.today),
-                  const SizedBox(width: 8),
-                  _StatChip(label: 'Новые', value: s.newCount),
-                ],
-              ),
-            ),
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
-          ),
           SizedBox(
             height: 48,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: _tabs.length,
+              itemCount: _tabDefs.length,
               itemBuilder: (context, index) {
+                final tab = _tabDefs[index];
                 final isSelected = _activeTab == index;
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
@@ -132,7 +148,7 @@ class _BookingsListScreenState extends ConsumerState<BookingsListScreen> {
                         child: Align(
                           alignment: Alignment.center,
                           child: Text(
-                            _tabs[index],
+                            _tabTitle(tab, stats),
                             style: TextStyle(
                               color: isSelected
                                   ? const Color(0xFFC6A400)
@@ -157,7 +173,10 @@ class _BookingsListScreenState extends ConsumerState<BookingsListScreen> {
               onRefresh: () async {
                 ref.invalidate(bookingsListProvider);
                 ref.invalidate(bookingsStatsProvider);
-                await ref.read(bookingsListProvider(_query).future);
+                await Future.wait([
+                  ref.read(bookingsListProvider(_query).future),
+                  ref.read(bookingsStatsProvider.future),
+                ]);
               },
               child: bookingsAsync.when(
                 loading: () => ListView(
@@ -258,40 +277,16 @@ class _BookingsListScreenState extends ConsumerState<BookingsListScreen> {
   }
 }
 
-class _StatChip extends StatelessWidget {
-  const _StatChip({required this.label, required this.value});
+enum _StatsKey { total, newCount, confirmed, completed }
+
+class _BookingTab {
+  const _BookingTab({
+    required this.label,
+    required this.status,
+    required this.statsKey,
+  });
 
   final String label;
-  final int value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: AppUiTokens.surfaceMuted,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Column(
-          children: [
-            Text(
-              '$value',
-              style: const TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 16,
-              ),
-            ),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 11,
-                color: AppUiTokens.secondaryText,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  final String? status;
+  final _StatsKey statsKey;
 }

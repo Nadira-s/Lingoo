@@ -99,3 +99,23 @@ final staffScheduleProvider =
     FutureProvider.autoDispose.family<StaffSchedule, int>((ref, staffId) async {
   return ref.read(lingooRepositoryProvider).getStaffSchedule(staffId);
 });
+
+/// Записи на выбранный календарный день.
+final dayBookingsProvider = FutureProvider.autoDispose
+    .family<List<Booking>, DateTime>((ref, day) async {
+  if (ref.watch(authNotifierProvider).valueOrNull == null) return [];
+  final start = DateTime(day.year, day.month, day.day);
+  final end = start.add(const Duration(days: 1)).subtract(const Duration(seconds: 1));
+  return ref.read(lingooRepositoryProvider).getBookings(
+        dateFrom: start,
+        dateTo: end,
+      );
+    });
+
+/// Записи на сегодня (дашборд менеджера).
+final todayBookingsProvider = FutureProvider.autoDispose<List<Booking>>((
+  ref,
+) async {
+  final now = DateTime.now();
+  return ref.read(dayBookingsProvider(now).future);
+});

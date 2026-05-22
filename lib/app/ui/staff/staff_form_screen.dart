@@ -1,16 +1,17 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../domain/model/staff_member.dart';
 import '../../domain/model/user_role.dart';
+import '../../access_providers.dart';
 import '../../catalog_providers.dart';
 import '../../di/app_providers.dart';
 import '../../utils/api_exception.dart';
+import '../../utils/phone_format.dart';
 import '../widgets/components/app_ui_tokens.dart';
 import '../widgets/components/form_text_field.dart';
+import '../widgets/components/password_text_field.dart';
+import '../widgets/components/phone_text_field.dart';
 import '../widgets/components/primary_button.dart';
 
 class StaffFormScreen extends ConsumerStatefulWidget {
@@ -147,10 +148,10 @@ class _StaffFormBodyState extends ConsumerState<_StaffFormBody> {
   late final TextEditingController _phone;
   late final TextEditingController _email;
   late final TextEditingController _password;
+  late final TextEditingController _buffer;
   int? _branchId;
+  final Set<int> _serviceIds = {};
   late bool _active;
-  File? _imageFile;
-  final ImagePicker _imagePicker = ImagePicker();
 
   static const _border = Color(0xFFB2AFAF);
 
@@ -182,7 +183,13 @@ class _StaffFormBodyState extends ConsumerState<_StaffFormBody> {
     _phone = TextEditingController(text: i?.phone ?? '');
     _email = TextEditingController(text: i?.email ?? '');
     _password = TextEditingController();
+    _buffer = TextEditingController(
+      text: i?.bufferMinutes == null || i!.bufferMinutes == 0
+          ? ''
+          : '${i.bufferMinutes}',
+    );
     _branchId = i?.branchId;
+    _serviceIds.addAll(i?.serviceIds ?? const []);
     _active = i?.isActive ?? true;
   }
 
@@ -192,6 +199,7 @@ class _StaffFormBodyState extends ConsumerState<_StaffFormBody> {
     _phone.dispose();
     _email.dispose();
     _password.dispose();
+    _buffer.dispose();
     super.dispose();
   }
 
@@ -199,18 +207,20 @@ class _StaffFormBodyState extends ConsumerState<_StaffFormBody> {
     return StaffMember(
       id: widget.initial?.id ?? 0,
       name: _name.text.trim(),
-      phone: _phone.text.trim(),
+      phone: PhoneFormat.forApi(_phone.text),
       email: _email.text.trim(),
       role: UserRole.manager,
       apiRole: 'MANAGER',
       branchId: _branchId,
       branchName: '',
       isActive: _active,
+      serviceIds: _serviceIds.toList(),
+      bufferMinutes: int.tryParse(_buffer.text.trim()) ?? 0,
     );
   }
 
   void _showError(Object e) {
-    final msg = e is ApiException
+    var msg = e is ApiException
         ? e.userMessage
         : 'Не удалось выполнить операцию.';
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
@@ -222,6 +232,18 @@ class _StaffFormBodyState extends ConsumerState<_StaffFormBody> {
     if (email.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Укажите email сотрудника')),
+      );
+      return false;
+    }
+    if (_branchId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Выберите филиал')),
+      );
+      return false;
+    }
+    if (_serviceIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Выберите хотя бы одну услугу')),
       );
       return false;
     }
@@ -244,6 +266,7 @@ class _StaffFormBodyState extends ConsumerState<_StaffFormBody> {
         );
       }
       ref.invalidate(staffListProvider);
+      ref.invalidate(accessUsersProvider);
       if (widget.initial != null) {
         ref.invalidate(staffDetailProvider(widget.initial!.id));
       }
@@ -253,6 +276,22 @@ class _StaffFormBodyState extends ConsumerState<_StaffFormBody> {
         );
       }
       return true;
+    } on ApiException catch (e) {
+      if (e.code == 'staff_partial_create' || e.code == 'staff_partial_update') {
+        ref.invalidate(staffListProvider);
+        ref.invalidate(accessUsersProvider);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(e.userMessage),
+              duration: const Duration(seconds: 6),
+            ),
+          );
+        }
+        return true;
+      }
+      _showError(e);
+      return false;
     } catch (e) {
       _showError(e);
       return false;
@@ -300,25 +339,6 @@ class _StaffFormBodyState extends ConsumerState<_StaffFormBody> {
     }
   }
 
-  Future<void> _pickImage() async {
-    try {
-      final XFile? pickedFile = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
-      );
-      if (pickedFile != null && mounted) {
-        setState(() {
-          _imageFile = File(pickedFile.path);
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка при выборе изображения: $e')),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final branches = ref.watch(branchesListProvider);
@@ -351,29 +371,28 @@ class _StaffFormBodyState extends ConsumerState<_StaffFormBody> {
                               width: 2,
                             ),
                           ),
-                          child: _imageFile != null
-                              ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(
-                                    AppUiTokens.radiusLg,
-                                  ),
-                                  child: Image.file(
-                                    _imageFile!,
-                                    fit: BoxFit.cover,
-                                  ),
-                                )
-                              : const Center(
-                                  child: Icon(
-                                    Icons.person,
-                                    size: 60,
-                                    color: AppUiTokens.secondaryText,
-                                  ),
-                                ),
+                          child: const Center(
+                            child: Icon(
+                              Icons.person,
+                              size: 60,
+                              color: AppUiTokens.secondaryText,
+                            ),
+                          ),
                         ),
                         Positioned(
                           bottom: 0,
                           right: 0,
                           child: GestureDetector(
-                            onTap: _pickImage,
+                            onTap: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Загрузка фото сотрудника появится после '
+                                    'поддержки в Mobile API.',
+                                  ),
+                                ),
+                              );
+                            },
                             child: Container(
                               width: 40,
                               height: 40,
@@ -406,10 +425,9 @@ class _StaffFormBodyState extends ConsumerState<_StaffFormBody> {
                         : null,
                   ),
                   const SizedBox(height: 16),
-                  FormTextField(
+                  PhoneTextField(
                     controller: _phone,
                     labelText: 'Телефон',
-                    hintText: 'Введите телефон...',
                   ),
                   const SizedBox(height: 16),
                   FormTextField(
@@ -421,13 +439,73 @@ class _StaffFormBodyState extends ConsumerState<_StaffFormBody> {
                         : null,
                   ),
                   const SizedBox(height: 16),
-                  FormTextField(
+                  PasswordTextField(
                     controller: _password,
                     labelText: widget.initial == null
                         ? 'Пароль'
                         : 'Новый пароль (необязательно)',
                     hintText: 'Введите пароль...',
-                    obscureText: true,
+                    validator: widget.initial == null
+                        ? (v) => (v == null || v.length < 4)
+                            ? ''
+                            : null
+                        : null,
+                  ),
+                  const SizedBox(height: 16),
+                  FormTextField(
+                    controller: _buffer,
+                    labelText: 'Перерыв между клиентами (мин)',
+                    hintText: '0',
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 16),
+                  ref.watch(servicesListProvider).when(
+                    data: (services) {
+                      if (services.isEmpty) {
+                        return const Text(
+                          'Сначала создайте услуги в разделе «Услуги»',
+                          style: TextStyle(color: AppUiTokens.secondaryText),
+                        );
+                      }
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Услуги',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppUiTokens.primaryText,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: services.map((s) {
+                              final selected = _serviceIds.contains(s.id);
+                              return FilterChip(
+                                label: Text(s.name),
+                                selected: selected,
+                                selectedColor: const Color(0xFFFFF3B0),
+                                checkmarkColor: Colors.black,
+                                onSelected: (v) {
+                                  setState(() {
+                                    if (v) {
+                                      _serviceIds.add(s.id);
+                                    } else {
+                                      _serviceIds.remove(s.id);
+                                    }
+                                  });
+                                },
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                      );
+                    },
+                    loading: () => const LinearProgressIndicator(),
+                    error: (e, _) => Text('Услуги: $e'),
                   ),
                   const SizedBox(height: 16),
                   branches.when(
@@ -449,10 +527,6 @@ class _StaffFormBodyState extends ConsumerState<_StaffFormBody> {
                             dropdownColor: Colors.white,
                             decoration: _dropdownDecoration(),
                             items: [
-                              const DropdownMenuItem<int?>(
-                                value: null,
-                                child: Text('Не выбран'),
-                              ),
                               ...list.map(
                                 (b) => DropdownMenuItem<int?>(
                                   value: b.id,

@@ -31,39 +31,92 @@ class StaffMember {
 
   factory StaffMember.fromJson(Map<String, dynamic> json) {
     final branch = asMap(json['branch']);
+    final branchDetails = json['branch_details'];
     final roleStr = json['role'] as String? ?? '';
+    final email = readString(json, 'email').isEmpty
+        ? readString(json, 'user_email')
+        : readString(json, 'email');
     return StaffMember(
       id: readInt(json['id']) ?? 0,
       name: readString(json, 'name').isEmpty
           ? readString(json, 'full_name')
           : readString(json, 'name'),
       phone: readString(json, 'phone'),
-      email: readString(json, 'email'),
+      email: email,
       role: UserRole.fromApi(roleStr),
       apiRole: roleStr.isEmpty ? 'MANAGER' : roleStr,
-      branchId: readInt(json['branch_id']) ?? readInt(branch?['id']),
-      branchName: branch != null ? readString(branch, 'name') : '',
+      branchId: readInt(json['branch_id']) ??
+          _firstRelationId(json['branches']) ??
+          _firstDetailId(branchDetails),
+      branchName: branch != null
+          ? readString(branch, 'name')
+          : _firstDetailName(branchDetails),
       isActive: readBool(json, 'is_active', fallback: true),
-      serviceIds: _parseServiceIds(json['services']),
+      serviceIds: _parseServiceIds(json['services'] ?? json['service_details']),
       bufferMinutes: readInt(json['buffer_minutes']) ?? 0,
     );
+  }
+
+  static int? _firstRelationId(dynamic raw) {
+    if (raw is! List || raw.isEmpty) return null;
+    final first = raw.first;
+    if (first is int) return first;
+    if (first is Map) return readInt(first['id']);
+    return null;
+  }
+
+  static int? _firstDetailId(dynamic raw) {
+    if (raw is! List || raw.isEmpty) return null;
+    final first = raw.first;
+    if (first is Map) return readInt(first['id']);
+    return null;
+  }
+
+  static String _firstDetailName(dynamic raw) {
+    if (raw is! List || raw.isEmpty) return '';
+    final first = raw.first;
+    if (first is Map) {
+      return readString(Map<String, dynamic>.from(first), 'name');
+    }
+    return '';
   }
 
   static List<int> _parseServiceIds(dynamic raw) {
     if (raw is! List) return const [];
     return raw
-        .map((e) => e is int ? e : (e is Map ? readInt(e['id']) : null))
+        .map((e) {
+          if (e is int) return e;
+          if (e is Map) return readInt(e['id']);
+          return null;
+        })
         .whereType<int>()
         .toList();
   }
 
-  Map<String, dynamic> toCreateBody({String? password}) => {
+  List<int> get branchIds => branchId != null ? [branchId!] : const [];
+
+  /// Тело POST `/staff/` и PATCH `/staff/<id>/` по Mobile API Reference.
+  Map<String, dynamic> toApiBody({String? password}) => {
         'name': name,
         'email': email,
         if (password != null && password.isNotEmpty) 'password': password,
-        if (branchId != null) 'branches': [branchId],
-        if (serviceIds.isNotEmpty) 'services': serviceIds,
+        'branches': branchIds,
+        'services': serviceIds,
         'is_active': isActive,
-        if (bufferMinutes > 0) 'buffer_minutes': bufferMinutes,
+        'buffer_minutes': bufferMinutes,
       };
+
+  StaffMember withoutBindings() => StaffMember(
+        id: id,
+        name: name,
+        phone: phone,
+        email: email,
+        role: role,
+        apiRole: apiRole,
+        branchId: null,
+        branchName: branchName,
+        isActive: isActive,
+        serviceIds: const [],
+        bufferMinutes: bufferMinutes,
+      );
 }
