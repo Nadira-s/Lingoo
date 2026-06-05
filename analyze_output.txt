@@ -1,0 +1,12 @@
+Analyzing business...                                           
+
+warning • The declaration '_isBranchesFieldError' isn't referenced • lib/app/data/api/lingoo_api_client.dart:322:8 • unused_element
+warning • Unused import: '../../../core/errors/api_exception.dart' • lib/app/data/repositories/lingoo_repository_impl.dart:1:8 • unused_import
+   info • 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre • lib/app/ui/branches/branch_form_screen.dart:299:25 • deprecated_member_use
+   info • 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre • lib/app/ui/profile/profile_form_screen.dart:247:27 • deprecated_member_use
+   info • 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre • lib/app/ui/profile/profile_form_screen.dart:305:27 • deprecated_member_use
+   info • 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre • lib/app/ui/services/service_form_screen.dart:335:25 • deprecated_member_use
+   info • 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre • lib/app/ui/staff/staff_form_screen.dart:578:31 • deprecated_member_use
+   info • 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre • lib/app/ui/staff/staff_form_screen.dart:622:25 • deprecated_member_use
+   info • Don't invoke 'print' in production code • scratch.dart:18:3 • avoid_print
+

@@ -239,6 +239,7 @@ class LingooApiClient extends ApiClient {
   }
 
   Future<StaffMember> createStaff(StaffMember draft, {String? password}) async {
+    _assertStaffBranchId(draft);
     final res = await post(
       ApiEndpoints.staff,
       data: draft.toApiBody(password: password),
@@ -247,9 +248,29 @@ class LingooApiClient extends ApiClient {
   }
 
   Future<StaffMember> updateStaff(StaffMember s, {String? password}) async {
+    _assertStaffBranchId(s);
     final res = await patch(
       ApiEndpoints.staffMember(s.id),
       data: s.toApiBody(password: password),
+    );
+    return StaffMember.fromJson(parseEntityMap(res.data));
+  }
+
+  void _assertStaffBranchId(StaffMember draft) {
+    final id = draft.branchId;
+    if (id == null || id <= 0) {
+      throw ApiException(
+        userMessage:
+            'Не выбран филиал. Обновите список филиалов и выберите филиал снова.',
+      );
+    }
+  }
+
+  Future<StaffMember> patchStaffBindings(StaffMember s) async {
+    _assertStaffBranchId(s);
+    final res = await patch(
+      ApiEndpoints.staffMember(s.id),
+      data: s.toBindingsBody(),
     );
     return StaffMember.fromJson(parseEntityMap(res.data));
   }
@@ -282,6 +303,10 @@ class LingooApiClient extends ApiClient {
   Future<Booking> fetchBooking(int id) async {
     final res = await get(ApiEndpoints.booking(id));
     return Booking.fromJson(parseEntityMap(res.data));
+  }
+
+  Future<Booking> createBooking(Booking draft) async {
+    throw UnsupportedError('createBooking отключён (демо)');
   }
 
   Future<Booking> patchBookingStatus(int id, String status) async {

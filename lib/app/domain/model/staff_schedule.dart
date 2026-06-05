@@ -47,6 +47,27 @@ class StaffScheduleDay {
         if (breakStart != null) 'break_start': breakStart,
         if (breakEnd != null) 'break_end': breakEnd,
       };
+
+  StaffScheduleDay copyWith({
+    int? weekday,
+    String? weekdayName,
+    bool? isWorking,
+    String? startTime,
+    String? endTime,
+    String? breakStart,
+    String? breakEnd,
+    bool clearBreak = false,
+  }) {
+    return StaffScheduleDay(
+      weekday: weekday ?? this.weekday,
+      weekdayName: weekdayName ?? this.weekdayName,
+      isWorking: isWorking ?? this.isWorking,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      breakStart: clearBreak ? null : (breakStart ?? this.breakStart),
+      breakEnd: clearBreak ? null : (breakEnd ?? this.breakEnd),
+    );
+  }
 }
 
 class StaffSchedule {

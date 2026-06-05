@@ -1,42 +1,120 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'auth_notifier.dart';
 import 'di/app_providers.dart';
 import 'domain/model/booking.dart';
 import 'domain/model/branch.dart';
 import 'domain/model/salon_service.dart';
 import 'domain/model/staff_member.dart';
 import 'domain/model/staff_schedule.dart';
+import 'domain/model/user_role.dart';
+import 'provider_helpers.dart';
+
+/// Данные для формы «Новая запись».
+class BookingFormCatalog {
+  const BookingFormCatalog({
+    required this.branches,
+    required this.services,
+    required this.staff,
+  });
+
+  final List<Branch> branches;
+  final List<SalonService> services;
+  final List<StaffMember> staff;
+}
+
+final bookingFormCatalogProvider =
+    FutureProvider.autoDispose<BookingFormCatalog>((ref) async {
+  final user = await waitForUser(ref);
+  if (user == null) {
+    return const BookingFormCatalog(
+      branches: [],
+      services: [],
+      staff: [],
+    );
+  }
+
+  final repo = ref.read(lingooRepositoryProvider);
+
+  if (user.isManagerUser && user.staffProfile != null) {
+    final profile = user.staffProfile!;
+    final branchesRaw =
+        await apiWithTimeout(repo.getBranches(), <Branch>[]);
+    final servicesRaw =
+        await apiWithTimeout(repo.getServices(), defaultServices);
+    return BookingFormCatalog(
+      branches: branchesForUser(user, branchesRaw),
+      services: servicesForManager(user, servicesRaw),
+      staff: [profile],
+    );
+  }
+
+  final results = await Future.wait([
+    apiWithTimeout(repo.getBranches(), <Branch>[]),
+    apiWithTimeout(repo.getServices(), defaultServices),
+    apiWithTimeout(repo.getStaff(), defaultStaff),
+  ]);
+
+  return BookingFormCatalog(
+    branches: results[0] as List<Branch>,
+    services: results[1] as List<SalonService>,
+    staff: results[2] as List<StaffMember>,
+  );
+});
 
 final branchesListProvider = FutureProvider.autoDispose<List<Branch>>((
   ref,
 ) async {
-  if (ref.watch(authNotifierProvider).valueOrNull == null) return [];
-  return ref.read(lingooRepositoryProvider).getBranches();
+  final user = await waitForUser(ref);
+  if (user == null) return [];
+  final raw = await apiWithTimeout(
+    ref.read(lingooRepositoryProvider).getBranches(),
+    <Branch>[],
+  );
+  return branchesForUser(user, raw);
 });
 
 final servicesListProvider = FutureProvider.autoDispose<List<SalonService>>((
   ref,
 ) async {
-  if (ref.watch(authNotifierProvider).valueOrNull == null) return [];
-  return ref.read(lingooRepositoryProvider).getServices();
+  final user = await waitForUser(ref);
+  if (user == null) return [];
+  final repo = ref.read(lingooRepositoryProvider);
+  final raw = await apiWithTimeout(repo.getServices(), defaultServices);
+  if (user.isManagerUser) {
+    return servicesForManager(user, raw);
+  }
+  return raw;
 });
 
 final staffListProvider = FutureProvider.autoDispose<List<StaffMember>>((
   ref,
 ) async {
-  if (ref.watch(authNotifierProvider).valueOrNull == null) return [];
-  return ref.read(lingooRepositoryProvider).getStaff();
+  final user = await waitForUser(ref);
+  if (user == null) return [];
+  if (user.isManagerUser && user.staffProfile != null) {
+    return [user.staffProfile!];
+  }
+  return apiWithTimeout(
+    ref.read(lingooRepositoryProvider).getStaff(),
+    defaultStaff,
+  );
 });
 
 final bookingsListProvider = FutureProvider.autoDispose
     .family<List<Booking>, BookingsQuery>((ref, query) async {
-      if (ref.watch(authNotifierProvider).valueOrNull == null) return [];
+      final user = await waitForUser(ref);
+      if (user == null) return [];
+
+      var staffId = query.staffId;
+      if (user.isManagerUser && user.staffProfile != null) {
+        staffId = user.staffProfile!.id;
+      }
+
       return ref.read(lingooRepositoryProvider).getBookings(
         dateFrom: query.dateFrom,
         dateTo: query.dateTo,
         status: query.status,
-        staffId: query.staffId,
+        staffId: staffId,
         search: query.search,
       );
     });
@@ -81,38 +159,93 @@ final branchDetailProvider = FutureProvider.autoDispose.family<Branch, int>((
   ref,
   id,
 ) async {
-  return ref.read(lingooRepositoryProvider).getBranch(id);
+  final list = await ref.read(branchesListProvider.future);
+  for (final b in list) {
+    if (b.id == id) return b;
+  }
+  return apiWithTimeout(
+    ref.read(lingooRepositoryProvider).getBranch(id),
+    Branch(
+      id: id,
+      name: 'Филиал',
+      address: '',
+      phone: '',
+      isActive: true,
+    ),
+  );
 });
 
 final serviceDetailProvider = FutureProvider.autoDispose
     .family<SalonService, int>((ref, id) async {
-      return ref.read(lingooRepositoryProvider).getService(id);
+      final list = await ref.read(servicesListProvider.future);
+      for (final s in list) {
+        if (s.id == id) return s;
+      }
+      return SalonService(
+        id: id,
+        name: 'Услуга',
+        description: '',
+        price: 0,
+        durationMinutes: 60,
+        isActive: true,
+      );
     });
 
 final staffDetailProvider = FutureProvider.autoDispose.family<StaffMember, int>(
   (ref, id) async {
-    return ref.read(lingooRepositoryProvider).getStaffMember(id);
+    final user = await waitForUser(ref);
+    if (user?.staffProfile?.id == id) {
+      return user!.staffProfile!;
+    }
+    final list = await ref.read(staffListProvider.future);
+    for (final s in list) {
+      if (s.id == id) return s;
+    }
+    return apiWithTimeout(
+      ref.read(lingooRepositoryProvider).getStaffMember(id),
+      StaffMember(
+        id: id,
+        name: 'Сотрудник',
+        phone: '',
+        email: '',
+        role: UserRole.manager,
+        apiRole: 'MANAGER',
+        branchId: 1,
+        branchName: '',
+        isActive: true,
+      ),
+    );
   },
 );
 
 final staffScheduleProvider =
     FutureProvider.autoDispose.family<StaffSchedule, int>((ref, staffId) async {
-  return ref.read(lingooRepositoryProvider).getStaffSchedule(staffId);
+  return apiWithTimeout(
+    ref.read(lingooRepositoryProvider).getStaffSchedule(staffId),
+    const StaffSchedule(days: []),
+  );
 });
 
-/// Записи на выбранный календарный день.
 final dayBookingsProvider = FutureProvider.autoDispose
     .family<List<Booking>, DateTime>((ref, day) async {
-  if (ref.watch(authNotifierProvider).valueOrNull == null) return [];
-  final start = DateTime(day.year, day.month, day.day);
-  final end = start.add(const Duration(days: 1)).subtract(const Duration(seconds: 1));
-  return ref.read(lingooRepositoryProvider).getBookings(
-        dateFrom: start,
-        dateTo: end,
-      );
-    });
+  final user = await waitForUser(ref);
+  if (user == null) return [];
 
-/// Записи на сегодня (дашборд менеджера).
+  int? staffId;
+  if (user.isManagerUser && user.staffProfile != null) {
+    staffId = user.staffProfile!.id;
+  }
+
+  final start = DateTime(day.year, day.month, day.day);
+  final end =
+      start.add(const Duration(days: 1)).subtract(const Duration(seconds: 1));
+  return ref.read(lingooRepositoryProvider).getBookings(
+    dateFrom: start,
+    dateTo: end,
+    staffId: staffId,
+  );
+});
+
 final todayBookingsProvider = FutureProvider.autoDispose<List<Booking>>((
   ref,
 ) async {

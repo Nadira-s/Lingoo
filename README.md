@@ -1,274 +1,96 @@
-# 📱 Android Tenant Booking Management App
+# Мобильное Flutter-приложение для управления записями (Lingoo Business)
 
-# 📌 Project Overview
-
-This project is an Android mobile application for managing tenant booking data via a provided REST API.
-
-- **Project type:** Android client application  
-- **Tenant:** `beauty-salon`  
-- **Base context:** http://127.0.0.1:8000/business/beauty-salon/dashboard/  
-- **Purpose:** Connect Android app to backend API (no backend development required)
-
-The application is designed for internal staff only (admin, manager, employees). Customers do not use this app.
+Мобильное Flutter-приложение разработано для автоматизации работы сотрудников салонов и арендаторов платформы (администраторов и менеджеров). Проект успешно переведён на стек **Flutter** и полностью интегрирован со всеми методами REST API платформы.
 
 ---
 
-# 🎯 Goal
+## 🚀 Запуск мобильного приложения
 
-To build an Android client that:
-- Connects to a provided API  
-- Displays and manages tenant data  
-- Handles role-based access (TENANT_ADMIN, MANAGER)  
-- Ensures proper data isolation per tenant  
-
----
-
-# 🔐 Authentication
-
-- Login with username + password  
-- Token-based authentication (JWT / session depending on API)  
-- Save session locally (SharedPreferences / Secure Storage)  
-- Auto logout on token expiration  
+1. **Открыть проект**: Откройте папку `business` во Flutter-совместимой IDE (VS Code или Android Studio).
+2. **Проверить зависимости**: Убедитесь, что все пакеты загружены, выполнив команду в терминале:
+   ```bash
+   flutter pub get
+   ```
+3. **Настроить API_BASE_URL**: 
+   - Базовый URL API по умолчанию настроен на тестовый сервер: `http://35.255.17.200/api/v1` (файл `lib/core/config/app_config.dart`).
+   - При сборке или запуске вы можете динамически переопределить базовый адрес API (например, для локального сервера на эмуляторе Android `http://10.0.2.2:8000/api/v1`):
+     ```bash
+     flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000/api/v1
+     ```
+4. **Запустить**: Выберите целевое устройство (эмулятор Android / iOS или физический смартфон) и нажмите кнопку **Run / Debug** или запустите команду `flutter run`.
 
 ---
 
-# 👥 User Roles
+## 🔌 API Интеграция
 
-# 🟢 TENANT_ADMIN
-
-Full access to tenant data:
-- Branches (CRUD)  
-- Services (CRUD)  
-- Employees (CRUD)  
-- All bookings  
-- Change booking status  
-- Edit comments/notes  
-
----
-
-# 🟡 MANAGER
-
-Limited access:
-- Can view only their own bookings  
-- Can open only assigned booking details  
-- Can update status (if allowed by API)  
-- Can edit comment (if allowed by API)  
-
-❌ Cannot:
-- View other employees' bookings  
-- Access other tenants’ data  
-- Manage staff  
-- Open unauthorized booking by ID  
-
----
-
-# 📲 App Screens
-
-- Login Screen  
-- Dashboard (summary stats)  
-- Bookings List (filters supported)  
-- Booking Details  
-- Branches (CRUD)  
-- Services (CRUD)  
-- Staff (restricted by role)  
-- Profile (logout)  
+Приложение использует официальное Mobile API платформы. Ниже представлен список подключенных эндпоинтов:
+* **Авторизация**:
+  - `POST /auth/login/` — Вход сотрудника в систему с выдачей токенов.
+  - `POST /auth/refresh/` — Обновление JWT-токена сессии.
+  - `POST /auth/logout/` — Безопасный выход из системы.
+  - `GET /auth/me/` — Профиль текущего авторизованного пользователя и его роль.
+* **Филиалы (Branches)**:
+  - `GET /branches/` — Список филиалов бизнеса.
+  - `POST /branches/` — Добавление нового филиала.
+  - `PATCH /branches/<id>/` — Редактирование существующего филиала.
+  - `DELETE /branches/<id>/` — Удаление филиала.
+* **Услуги (Services)**:
+  - `GET /services/` — Список услуг арендатора.
+  - `POST /services/` — Создание новой услуги.
+  - `PATCH /services/<id>/` — Редактирование услуги.
+  - `DELETE /services/<id>/` — Удаление услуги.
+* **Сотрудники (Staff)**:
+  - `GET /staff/` — Список персонала салона (только `TENANT_ADMIN`).
+  - `POST /staff/` — Создание сотрудника с выбором филиала и услуг.
+  - `PATCH /staff/<id>/` — Редактирование сотрудника (включая привязки).
+  - `DELETE /staff/<id>/` — Удаление сотрудника.
+  - `GET /staff/<id>/schedule/` — Просмотр расписания работы сотрудника.
+  - `PUT /staff/<id>/schedule/` — Редактирование дней и часов работы сотрудника.
+* **Записи клиентов (Bookings)**:
+  - `GET /bookings/` — Список записей (с фильтрацией по статусу, дате, поиском и привязкой к сотруднику).
+  - `GET /bookings/<id>/` — Детали конкретной записи.
+  - `PATCH /bookings/<id>/status/` — Изменение статуса записи (Новая, Подтверждена, Завершена, Отменена).
+  - `PATCH /bookings/<id>/comment/` — Сохранение комментария администратора/менеджера.
 
 ---
 
-# ⚙️ Flutter Code Requirements
+## 👥 Роли и тестовые пользователи
 
-# 📦 Recommended Stack
+### 🟢 Администратор арендатора (TENANT_ADMIN)
+Имеет полный доступ ко всем функциям управления бизнесом.
+* **Логин**: `admin`
+* **Пароль**: *(введите пароль вашей учетной записи администратора)*
 
-- Dart  
-- Flutter SDK  
-- Android Studio / VS Code  
-- State Management: Riverpod / BLoC (preferred)  
-- Dio or http for API requests  
-- Freezed / json_serializable for models  
-- Async/Await (Future, Stream)  
-- Clean Architecture (mandatory)  
-- GoRouter or Navigator 2.0  
-- SharedPreferences / Hive / Secure Storage  
+### 🟡 Менеджер / Исполнитель (MANAGER)
+Имеет ограниченный доступ. Не имеет прав просмотра списков сотрудников, услуг, других филиалов, а также чужих записей.
+* **Логин**: `manager`
+* **Пароль**: *(введите пароль вашей учетной записи менеджера)*
 
 ---
 
-# 🧠 Code Structure Rules
+## 🛠️ Реализованные функции
 
-❌ Not allowed:
-- Business logic inside UI  
-- Direct API calls from UI  
-- Mixing layers  
-
-✔️ Required:
-- Clean Architecture  
-- Repository + UseCase pattern  
-- State management (Riverpod/BLoC)  
-- Proper error handling  
-
----
-
-# 📁 Project Structure
-
-lib/
-  data/
-    api/
-      dio_client.dart
-      endpoints.dart
-    models/
-      dto/
-    repositories/
-      impl/
-
-  domain/
-    models/
-    repositories/
-    usecases/
-
-  presentation/
-    auth/
-      screens/
-      widgets/
-      state/
-    dashboard/
-      screens/
-      widgets/
-      state/
-    bookings/
-    branches/
-    services/
-    staff/
-    profile/
-  core/
-    navigation/
-      app_router.dart
-    utils/
-    constants/
-    errors/
-    theme/
-
-  main.dart
-# 🏗 Architecture Rules
-
-UI layer only displays data  
-Domain layer contains business logic  
-Data layer handles API/local storage  
-Flow: UI → Domain → Data  
-Dependency Injection required  
+* **Безопасная авторизация**: Полное шифрование и сохранение сессии на устройстве через Secure Storage. Валидация пустых полей до отправки запроса.
+* **Информативный Dashboard**:
+  - Для `TENANT_ADMIN`: Общие счетчики филиалов, сотрудников, услуг, сводка записей на сегодня.
+  - Для `MANAGER`: Только статистика по его личным записям на сегодня.
+* **Премиум-интерфейс без лишних действий**:
+  - В соответствии с ТЗ, убраны все оверлеи камеры и селекторы загрузки картинок. Везде стоят красивые дефолтные аватары с инициалами или серыми человечками.
+  - Убрано лишнее поле «Перерыв» из формы сотрудника, на уровне API данные передаются корректно и без ошибок.
+* **Удобное расположение кнопок**:
+  - На всех формах кнопка **«Удалить»** находится сверху в AppBar в виде красной лаконичной ссылки.
+  - Кнопка **«Сохранить»** находится в самом низу экрана в виде контрастной желтой кнопки `PrimaryButton`.
+* **Безопасность роли MANAGER**:
+  - Менеджер автоматически перенаправляется на главную при попытке вручную перейти в запрещенные разделы (`/staff`, `/services`, `/branches`).
+  - Менеджер видит списки записей и календарное расписание только по своему ID.
+  - При попытке получить доступ к чужой записи по прямому ID, приложение перехватывает ошибку `403 Forbidden` и выводит пользователю сообщение: **«У вас нет доступа к этой записи»**.
 
 ---
 
-# 🔌 API Integration
+## 🧪 Проверка роли MANAGER
 
-- Authentication  
-- Current user info  
-- Branches  
-- Services  
-- Employees  
-- Bookings  
-- Status updates  
-
-⚠️ Backend handles tenant filtering (no bypass allowed)
-
----
-
-# ❗ Error Handling
-
-- No internet  
-- 401 Unauthorized  
-- 403 Forbidden  
-- 404 Not found  
-- 500 Server error  
-- Empty states  
-- Invalid login  
-
-json
-{
-  "message": "Access denied",
-  "code": "permission_denied",
-  "status": 403
-}
-# 👤 Login Screen Requirements
-
-- Username field  
-- Password field  
-- Login button  
-- Loading indicator  
-- Error messages  
-- Validation  
-
-On success:
-- Fetch user data (ID, role, tenant)  
-- Open dashboard  
-
----
-
-# 📊 Key Features
-
-- Role-based UI  
-- Tenant-scoped data  
-- Booking management  
-- Branch & service management  
-- Staff management  
-- Secure auth  
-- Safe error handling  
-
----
-
-# 🧪 Testing Scenarios
-
-## Authentication
-- valid login  
-- invalid login  
-- empty fields  
-- logout  
-
-## TENANT_ADMIN
-- full CRUD access  
-- all bookings  
-
-## MANAGER
-- only own bookings  
-- no access to others  
-- correct error handling  
-
----
-
-# 📌 Requirements
-
-- No crashes  
-- Role restrictions enforced  
-- Clean architecture  
-- API-driven app  
-
----
-
-# 📄 README Must Include
-
-- API base URL  
-- Auth method  
-- Test accounts  
-- Endpoints list  
-- Role permissions  
-- Known issues  
-- Run instructions  
-
----
-
-# 🚀 Optional Features
-
-- Search  
-- Pagination  
-- Pull-to-refresh  
-- Dark mode  
-- Calendar view  
-- Push notifications  
-
----
-
-# ✅ Final Result
-
-- Working Android app  
-- Connected to API  
-- Role-based access working  
-- Clean UI structure  
-- Stable and production-ready architecture  
+1. Войдите в приложение под учетной записью с ролью **MANAGER**.
+2. Откройте вкладку **«Записи»** или раздел **«Расписание»** и убедитесь, что отображаются только записи, где текущий менеджер назначен исполнителем.
+3. Попробуйте сымитировать открытие чужой записи по прямому ID (например, через сетевой отладчик или переход).
+4. Убедитесь, что сетевой запрос возвращает ошибку `403`, а приложение безопасно отображает экран ошибки с текстом **«У вас нет доступа к этой записи.»** без аварийного завершения (Crash).
+5. Убедитесь, что в нижней навигационной панели для менеджера скрыты вкладки «Услуги» и «Сотрудники», а в профиле отображается только его информация, филиал и кнопка выхода.

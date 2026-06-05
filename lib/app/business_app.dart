@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:developer' as developer;
 
@@ -27,6 +28,16 @@ class BusinessApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'Управление записями',
       debugShowCheckedModeBanner: false,
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('ru'),
+        Locale('en'),
+      ],
+      locale: const Locale('ru'),
       theme: ThemeData(
         useMaterial3: true,
         scaffoldBackgroundColor: Colors.white,

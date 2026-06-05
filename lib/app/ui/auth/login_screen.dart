@@ -80,26 +80,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                     // Logo
                     Center(
-                      child: Container(
-                        width: 100,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF6C90E),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.calendar_month,
-                          size: 60,
-                          color: Colors.black87,
-                        ),
+                      child: Image.asset(
+                        'assets/icons/image-removebg-preview 1.png',
+                        height: 120,
+                        fit: BoxFit.contain,
                       ),
                     ),
                     const SizedBox(height: 20),
 
                     // Title
                     const Text(
-                      'Запись • бизнес',
+                      'Lingoo • бизнес',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 22,
@@ -112,7 +103,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                     // Subtitle
                     const Text(
-                      'Логин для mobile API — username из системы\n(например: test, не название салона)',
+                      'Войдите в аккаунт',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,

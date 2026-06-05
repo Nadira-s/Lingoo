@@ -18,7 +18,7 @@ class DashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authNotifierProvider).valueOrNull;
-    final isManager = user?.role.isManager ?? false;
+    final isManager = user?.isManagerUser ?? false;
     final dashboard = ref.watch(dashboardDataProvider);
 
     final greetingName = isManager && user?.staffProfile?.name.isNotEmpty == true

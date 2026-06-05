@@ -39,16 +39,32 @@ class _BranchFormScreenState extends ConsumerState<BranchFormScreen> {
   @override
   Widget build(BuildContext context) {
     final branchId = widget.branchId;
-    if (branchId == null) {
-      return _FormScaffold(
-        title: 'Новый филиал',
+
+    Widget buildBody(Branch? initial) {
+      return _BranchFormBody(
+        key: _bodyKey,
+        formKey: _formKey,
+        initial: initial,
         saving: _saving,
         onSave: () => _onSave(context),
-        child: _BranchFormBody(
-          key: _bodyKey,
-          formKey: _formKey,
-          initial: null,
+      );
+    }
+
+    if (branchId == null) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          centerTitle: true,
+          title: const Text('Новый филиал'),
+          elevation: 0,
+          backgroundColor: Colors.white,
+          foregroundColor: const Color(0xFF1A1C1E),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
         ),
+        body: buildBody(null),
       );
     }
 
@@ -60,68 +76,34 @@ class _BranchFormScreenState extends ConsumerState<BranchFormScreen> {
         appBar: AppBar(title: const Text('Филиал')),
         body: Center(child: Text('$e')),
       ),
-      data: (b) => _FormScaffold(
-        title: 'Редактирование',
-        saving: _saving,
-        onSave: () => _onSave(context),
-        child: _BranchFormBody(
-          key: _bodyKey,
-          formKey: _formKey,
-          initial: b,
-        ),
-      ),
-    );
-  }
-}
-
-class _FormScaffold extends StatelessWidget {
-  const _FormScaffold({
-    required this.title,
-    required this.onSave,
-    required this.child,
-    this.saving = false,
-  });
-
-  final String title;
-  final VoidCallback onSave;
-  final Widget child;
-  final bool saving;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        centerTitle: true,
-        title: Text(title),
-        elevation: 0,
+      data: (b) => Scaffold(
         backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1A1C1E),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: saving ? null : onSave,
-            child: saving
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text(
-                    'Сохранить',
-                    style: TextStyle(
-                      color: Color(0xFFFFCC00),
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                    ),
-                  ),
+        appBar: AppBar(
+          centerTitle: true,
+          title: const Text('Редактирование'),
+          elevation: 0,
+          backgroundColor: Colors.white,
+          foregroundColor: const Color(0xFF1A1C1E),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+            onPressed: () => Navigator.of(context).maybePop(),
           ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: _saving ? null : () => _bodyKey.currentState?.onDelete(),
+              child: const Text(
+                'Удалить',
+                style: TextStyle(
+                  color: Colors.redAccent,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ],
+        ),
+        body: buildBody(b),
       ),
-      body: child,
     );
   }
 }
@@ -131,10 +113,14 @@ class _BranchFormBody extends ConsumerStatefulWidget {
     super.key,
     required this.formKey,
     required this.initial,
+    required this.saving,
+    required this.onSave,
   });
 
   final GlobalKey<FormState> formKey;
   final Branch? initial;
+  final bool saving;
+  final VoidCallback onSave;
 
   @override
   ConsumerState<_BranchFormBody> createState() => _BranchFormBodyState();
@@ -182,6 +168,8 @@ class _BranchFormBodyState extends ConsumerState<_BranchFormBody> {
         : 'Не удалось выполнить операцию.';
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
+
+  Future<void> onDelete() => _onDelete();
 
   Future<bool> submit() async {
     if (!(widget.formKey.currentState?.validate() ?? false)) return false;
@@ -296,7 +284,7 @@ class _BranchFormBodyState extends ConsumerState<_BranchFormBody> {
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
-                        value: _active ? 'active' : 'inactive',
+                        initialValue: _active ? 'active' : 'inactive',
                         dropdownColor: Colors.white,
                         decoration: InputDecoration(
                           filled: true,
@@ -346,9 +334,9 @@ class _BranchFormBodyState extends ConsumerState<_BranchFormBody> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: PrimaryButton(
-              label: 'Удалить',
-              onPressed: _onDelete,
-              isOutlined: true,
+              label: 'Сохранить',
+              onPressed: widget.onSave,
+              isLoading: widget.saving,
             ),
           ),
         ),

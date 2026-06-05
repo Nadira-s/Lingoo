@@ -20,21 +20,42 @@ class UserProfile {
   final Tenant? tenant;
   final StaffMember? staffProfile;
 
+  /// Менеджер / исполнитель (не администратор арендатора).
+  bool get isManagerUser {
+    if (role.isTenantAdmin) return false;
+    if (role.isManager) return true;
+    final api = staffProfile?.apiRole.toUpperCase() ?? '';
+    if (api.contains('MANAGER')) return true;
+    // Связанный staff без прав админа — режим менеджера в приложении.
+    if (staffProfile != null && staffProfile!.id > 0) return true;
+    return false;
+  }
+
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     final tenantRaw = json['tenant'] ?? json['tenant_info'];
+    final staffProfile = _parseStaff(json);
+    var role = UserRole.fromApi(
+      json['role'] as String? ??
+          json['role_name'] as String? ??
+          (readBool(json, 'is_tenant_admin') ? 'TENANT_ADMIN' : null),
+    );
+    if (!role.isTenantAdmin && staffProfile != null) {
+      final staffRole = UserRole.fromApi(staffProfile.apiRole);
+      if (staffRole.isManager) {
+        role = UserRole.manager;
+      } else if (role == UserRole.unknown) {
+        role = UserRole.manager;
+      }
+    }
     return UserProfile(
       id: readInt(json['id']) ?? 0,
       username: readString(json, 'username').isEmpty
           ? readString(json, 'login')
           : readString(json, 'username'),
       email: readString(json, 'email'),
-      role: UserRole.fromApi(
-        json['role'] as String? ??
-            json['role_name'] as String? ??
-            (readBool(json, 'is_tenant_admin') ? 'TENANT_ADMIN' : null),
-      ),
+      role: role,
       tenant: tenantRaw is Map ? Tenant.fromJson(asMap(tenantRaw)!) : null,
-      staffProfile: _parseStaff(json),
+      staffProfile: staffProfile,
     );
   }
 

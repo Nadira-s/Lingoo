@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../auth_notifier.dart';
 import '../../catalog_providers.dart';
 import '../widgets/components/app_bar_add_button.dart';
 import '../widgets/components/app_ui_tokens.dart';
@@ -33,6 +34,8 @@ class _ServicesListScreenState extends ConsumerState<ServicesListScreen> {
   @override
   Widget build(BuildContext context) {
     final list = ref.watch(servicesListProvider);
+    final isManager =
+        ref.watch(authNotifierProvider).valueOrNull?.isManagerUser ?? false;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -51,12 +54,19 @@ class _ServicesListScreenState extends ConsumerState<ServicesListScreen> {
           ),
         ),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: AppBarAddButton(
-              onPressed: () => context.push('/services/new'),
-            ),
+          IconButton(
+            tooltip: 'Расписание записей',
+            onPressed: () => context.push('/bookings/schedule'),
+            icon: const Icon(Icons.calendar_month_outlined),
+            color: AppUiTokens.primaryText,
           ),
+          if (!isManager)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: AppBarAddButton(
+                onPressed: () => context.push('/services/new'),
+              ),
+            ),
         ],
       ),
       body: list.when(
@@ -116,12 +126,9 @@ class _ServicesListScreenState extends ConsumerState<ServicesListScreen> {
                         final s = filtered[index];
                         return ServiceListCard(
                           service: s,
+                          readOnly: isManager,
                           onEdit: () => context.push('/services/${s.id}/edit'),
-                          onSchedule: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Расписание: ${s.name}')),
-                            );
-                          },
+                          onSchedule: () => context.push('/bookings/schedule'),
                         );
                       },
                     ),

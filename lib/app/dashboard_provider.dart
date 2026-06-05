@@ -1,14 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'auth_notifier.dart';
 import 'di/app_providers.dart';
 import 'domain/model/dashboard_data.dart';
 import 'domain/model/dashboard_stats.dart';
+import 'provider_helpers.dart';
 
 final dashboardDataProvider = FutureProvider.autoDispose<DashboardData>((
   ref,
 ) async {
-  if (ref.watch(authNotifierProvider).valueOrNull == null) {
+  final user = await waitForUser(ref);
+  if (user == null) {
     return const DashboardData(
       stats: DashboardStats(
         branches: 0,
@@ -18,7 +19,17 @@ final dashboardDataProvider = FutureProvider.autoDispose<DashboardData>((
       ),
     );
   }
-  return ref.read(lingooRepositoryProvider).getDashboard();
+  return apiWithTimeout(
+    ref.read(lingooRepositoryProvider).getDashboard(),
+    const DashboardData(
+      stats: DashboardStats(
+        branches: 0,
+        services: 0,
+        staff: 0,
+        bookings: 0,
+      ),
+    ),
+  );
 });
 
 final dashboardStatsProvider = FutureProvider.autoDispose<DashboardStats>((

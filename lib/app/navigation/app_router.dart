@@ -9,6 +9,7 @@ import '../ui/auth/login_screen.dart';
 import '../ui/bookings/booking_detail_screen.dart';
 import '../ui/bookings/bookings_list_screen.dart';
 import '../ui/bookings/bookings_schedule_screen.dart';
+import '../ui/bookings/booking_form_screen.dart';
 import '../ui/branches/branch_form_screen.dart';
 import '../ui/branches/branches_list_screen.dart';
 import '../ui/dashboard/dashboard_screen.dart';
@@ -17,6 +18,7 @@ import '../ui/profile/access_management_screen.dart';
 import '../ui/profile/business_settings_screen.dart';
 import '../ui/profile/profile_form_screen.dart';
 import '../ui/profile/profile_screen.dart';
+import '../ui/profile/tariff_limits_screen.dart';
 import '../ui/services/service_form_screen.dart';
 import '../ui/services/services_list_screen.dart';
 import 'main_shell.dart';
@@ -25,6 +27,8 @@ import '../ui/staff/staff_list_screen.dart';
 import '../ui/staff/staff_schedule_screen.dart';
 
 final _routerRefresh = ValueNotifier<int>(0);
+final rootNavigatorKey = GlobalKey<NavigatorState>();
+final shellNavigatorKey = GlobalKey<NavigatorState>();
 
 final goRouterProvider = Provider<GoRouter>((ref) {
   developer.log('🔄 goRouterProvider initializing...');
@@ -33,6 +37,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       forceLogoutTickProvider, (previous, next) => _routerRefresh.value++);
 
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/splash',
     refreshListenable: _routerRefresh,
     redirect: (context, state) {
@@ -57,11 +62,27 @@ final goRouterProvider = Provider<GoRouter>((ref) {
 
       if (loc == '/splash' || loc == '/login') return '/home';
 
-      if (user.role.isManager) {
-        if (loc.startsWith('/branches') ||
-            loc.startsWith('/services') ||
-            loc.startsWith('/staff')) {
-          return '/home';
+      if (user.isManagerUser) {
+        if (loc.startsWith('/branches')) return '/home';
+        if (loc.startsWith('/services/new') ||
+            RegExp(r'^/services/\d+/edit').hasMatch(loc)) {
+          return '/services';
+        }
+        if (loc.startsWith('/staff/new') ||
+            RegExp(r'^/staff/\d+/edit').hasMatch(loc)) {
+          return '/staff';
+        }
+        final scheduleMatch =
+            RegExp(r'^/staff/(\d+)/schedule').firstMatch(loc);
+        if (scheduleMatch != null) {
+          final id = int.tryParse(scheduleMatch.group(1) ?? '') ?? 0;
+          final ownId = user.staffProfile?.id;
+          if (ownId != null && ownId > 0 && id != ownId) return '/staff';
+        }
+        if (loc.startsWith('/profile/access') ||
+            loc.startsWith('/profile/business') ||
+            loc.startsWith('/profile/tariff')) {
+          return '/profile';
         }
       }
 
@@ -77,6 +98,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const LoginScreen(),
       ),
       ShellRoute(
+        navigatorKey: shellNavigatorKey,
         builder: (context, state, child) => MainShell(child: child),
         routes: [
           GoRoute(
@@ -86,17 +108,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/bookings',
             builder: (context, state) => const BookingsListScreen(),
-          ),
-          GoRoute(
-            path: '/bookings/schedule',
-            builder: (context, state) => const BookingsScheduleScreen(),
-          ),
-          GoRoute(
-            path: '/bookings/:id',
-            builder: (context, state) {
-              final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
-              return BookingDetailScreen(bookingId: id);
-            },
           ),
           GoRoute(
             path: '/branches',
@@ -115,6 +126,36 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const ProfileScreen(),
           ),
         ],
+      ),
+      // Записи вне ShellRoute (чтобы /bookings/new не попадал в :id)
+      GoRoute(
+        path: '/bookings/schedule',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const BookingsScheduleScreen(),
+      ),
+      GoRoute(
+        path: '/bookings/new',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const BookingFormScreen(),
+      ),
+      GoRoute(
+        path: '/bookings/:id',
+        parentNavigatorKey: rootNavigatorKey,
+        redirect: (context, state) {
+          final raw = state.pathParameters['id'] ?? '';
+          if (raw == 'new') return '/bookings/new';
+          if (raw == 'schedule') return '/bookings/schedule';
+          if (int.tryParse(raw) == null) return '/bookings';
+          return null;
+        },
+        builder: (context, state) {
+          final rawId = state.pathParameters['id'];
+          final id = int.tryParse(rawId ?? '') ?? 0;
+          developer.log(
+            '🧭 Route match: /bookings/:id. rawId: $rawId, parsed id: $id',
+          );
+          return BookingDetailScreen(bookingId: id);
+        },
       ),
       // Формы без нижней навигации (вне ShellRoute)
       GoRoute(
@@ -152,6 +193,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/staff/:id/schedule',
+        parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) {
           final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
           return StaffScheduleScreen(staffId: id);
@@ -163,15 +205,21 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/profile/form',
+        parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const ProfileFormScreen(),
+      ),
+      GoRoute(
+        path: '/notifications',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const NotificationsScreen(),
       ),
       GoRoute(
         path: '/profile/business',
         builder: (context, state) => const BusinessSettingsScreen(),
       ),
       GoRoute(
-        path: '/notifications',
-        builder: (context, state) => const NotificationsScreen(),
+        path: '/profile/tariff',
+        builder: (context, state) => const TariffLimitsScreen(),
       ),
     ],
   );

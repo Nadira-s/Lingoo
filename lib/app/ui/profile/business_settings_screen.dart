@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../auth_notifier.dart';
 import '../../data_providers.dart';
 import '../../domain/model/business_settings.dart';
 import '../../di/app_providers.dart';
 import '../../utils/api_exception.dart';
 import '../../utils/phone_format.dart';
+import '../widgets/components/app_ui_tokens.dart';
 import '../widgets/components/form_text_field.dart';
 import '../widgets/components/phone_text_field.dart';
 import '../widgets/components/primary_button.dart';
@@ -47,6 +50,29 @@ class _BusinessSettingsScreenState extends ConsumerState<BusinessSettingsScreen>
     _email.text = s.email;
     _currency.text = s.currency;
     _loaded = true;
+  }
+
+  Future<void> _logout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Выйти из аккаунта?'),
+        content: const Text('Вы будете перенаправлены на экран входа.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Выйти'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await ref.read(authNotifierProvider.notifier).logout();
+    if (mounted) context.go('/login');
   }
 
   Future<void> _save() async {
@@ -148,6 +174,23 @@ class _BusinessSettingsScreenState extends ConsumerState<BusinessSettingsScreen>
                   PrimaryButton(
                     label: _saving ? 'Сохранение...' : 'Сохранить',
                     onPressed: _saving ? () {} : _save,
+                  ),
+                  const SizedBox(height: 32),
+                  const Divider(),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Аккаунт',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppUiTokens.secondaryText,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  PrimaryButton(
+                    label: 'Выйти из аккаунта',
+                    isOutlined: true,
+                    onPressed: _logout,
                   ),
                 ],
               ),

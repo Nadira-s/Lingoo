@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../auth_notifier.dart';
 import '../../catalog_providers.dart';
+import '../../navigation/app_navigation.dart';
 import '../widgets/cards/booking_card.dart';
 import '../widgets/components/app_ui_tokens.dart';
 import '../widgets/components/section_header.dart';
@@ -16,7 +17,11 @@ class ManagerDashboardBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authNotifierProvider).valueOrNull;
     final today = ref.watch(todayBookingsProvider);
-    final branches = ref.watch(branchesListProvider);
+
+    final branchName = user?.staffProfile?.branchName.isNotEmpty == true
+        ? user!.staffProfile!.branchName
+        : 'Не назначен';
+    const address = 'Адрес уточняется у администратора';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -32,13 +37,19 @@ class ManagerDashboardBody extends ConsumerWidget {
               children: bookings.take(5).map((b) {
                 return BookingCard(
                   booking: b,
-                  onTap: () => context.push('/bookings/${b.id}'),
+                  onTap: () => openBookingDetail(context, b.id),
                 );
               }).toList(),
             );
           },
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Text('Ошибка: $e'),
+          loading: () => const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (e, _) => Text(
+            'Не удалось загрузить записи. Потяните вниз для обновления.',
+            style: TextStyle(color: AppUiTokens.secondaryText),
+          ),
         ),
         Align(
           alignment: Alignment.centerRight,
@@ -53,22 +64,7 @@ class ManagerDashboardBody extends ConsumerWidget {
         const SizedBox(height: 24),
         const SectionHeader('Мой филиал'),
         const SizedBox(height: 12),
-        branches.when(
-          data: (list) {
-            final branchName = user?.staffProfile?.branchName.isNotEmpty == true
-                ? user!.staffProfile!.branchName
-                : (list.isNotEmpty ? list.first.name : 'Не назначен');
-            final address = list.isNotEmpty && list.first.address.isNotEmpty
-                ? list.first.address
-                : 'Адрес не указан';
-            return _BranchCard(name: branchName, address: address);
-          },
-          loading: () => const _BranchCard(name: '…', address: ''),
-          error: (_, __) => const _BranchCard(
-            name: 'Филиал',
-            address: 'Не удалось загрузить',
-          ),
-        ),
+        _BranchCard(name: branchName, address: address),
       ],
     );
   }

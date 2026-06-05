@@ -48,7 +48,9 @@ class AuthRepository {
           access: tokens.access,
           refresh: tokens.refresh ?? refresh,
         );
-        return await _repo.getCurrentUser();
+        return await _repo
+            .getCurrentUser()
+            .timeout(const Duration(seconds: 15));
       } catch (_) {
         await _tokens.clear();
         return null;

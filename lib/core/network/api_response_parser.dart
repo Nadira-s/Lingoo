@@ -101,6 +101,18 @@ int? readInt(dynamic v) {
   return null;
 }
 
+/// ID сущности из JSON (`id`, `pk`, …). 0 — невалидный id.
+int readEntityId(
+  Map<String, dynamic> json, [
+  List<String> keys = const ['id', 'pk'],
+]) {
+  for (final k in keys) {
+    final v = readInt(json[k]);
+    if (v != null && v > 0) return v;
+  }
+  return 0;
+}
+
 DateTime? parseDateTime(dynamic v) {
   if (v == null) return null;
   if (v is DateTime) return v;

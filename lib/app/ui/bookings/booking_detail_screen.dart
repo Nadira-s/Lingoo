@@ -3,11 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../domain/model/booking.dart';
+import '../../auth_notifier.dart';
 import '../../catalog_providers.dart';
 import '../../di/app_providers.dart';
 import '../../utils/api_exception.dart';
 import '../widgets/components/app_ui_tokens.dart';
 import '../widgets/components/booking_status_badge.dart';
+import '../widgets/components/manager_status_action_button.dart';
 import '../widgets/components/status_outline_button.dart';
 
 class BookingDetailScreen extends ConsumerWidget {
@@ -39,19 +41,22 @@ class BookingDetailScreen extends ConsumerWidget {
       ),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(
-              'Запись не найдена.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.error,
-                fontWeight: FontWeight.w600,
+        error: (e, _) {
+          final isForbidden = e is ApiException && e.statusCode == 403;
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                isForbidden ? 'У вас нет доступа к этой записи.' : 'Запись не найдена.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-          ),
-        ),
+          );
+        },
         data: (b) => _BookingDetailContent(key: ValueKey(b.id), booking: b),
       ),
     );
@@ -305,6 +310,8 @@ class _BookingDetailContentState extends ConsumerState<_BookingDetailContent> {
   Widget build(BuildContext context) {
     final b = widget.booking;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final isManager =
+        ref.watch(authNotifierProvider).valueOrNull?.isManagerUser ?? false;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -381,46 +388,47 @@ class _BookingDetailContentState extends ConsumerState<_BookingDetailContent> {
                   trailing: BookingStatusBadge(status: _status ?? b.status),
                 ),
                 const Divider(height: 1, color: AppUiTokens.borderSubtle),
-                Padding(
-                  padding: const EdgeInsets.only(top: 16, bottom: 18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Комментарий', style: _labelStyle),
-                      const SizedBox(height: 10),
-                      Material(
-                        key: _noteKey,
-                        color: AppUiTokens.surfaceMuted,
-                        borderRadius: BorderRadius.circular(
-                          AppUiTokens.radiusMd,
-                        ),
-                        child: TextField(
-                          controller: _noteCtrl,
-                          focusNode: _noteFocus,
-                          readOnly: !_noteEditable,
-                          maxLines: 6,
-                          minLines: 3,
-                          style: const TextStyle(
-                            color: AppUiTokens.primaryText,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 15,
-                            height: 1.45,
+                if (!isManager)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16, bottom: 18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Комментарий', style: _labelStyle),
+                        const SizedBox(height: 10),
+                        Material(
+                          key: _noteKey,
+                          color: AppUiTokens.surfaceMuted,
+                          borderRadius: BorderRadius.circular(
+                            AppUiTokens.radiusMd,
                           ),
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            contentPadding: EdgeInsets.all(14),
-                            border: InputBorder.none,
-                            hintText: 'Нет комментария',
-                            hintStyle: TextStyle(
-                              color: AppUiTokens.tertiaryText,
-                              fontWeight: FontWeight.w400,
+                          child: TextField(
+                            controller: _noteCtrl,
+                            focusNode: _noteFocus,
+                            readOnly: !_noteEditable,
+                            maxLines: 6,
+                            minLines: 3,
+                            style: const TextStyle(
+                              color: AppUiTokens.primaryText,
+                              fontWeight: FontWeight.w500,
+                              fontSize: 15,
+                              height: 1.45,
+                            ),
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              contentPadding: EdgeInsets.all(14),
+                              border: InputBorder.none,
+                              hintText: 'Нет комментария',
+                              hintStyle: TextStyle(
+                                color: AppUiTokens.tertiaryText,
+                                fontWeight: FontWeight.w400,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
               ],
             ),
           ),
@@ -434,75 +442,58 @@ class _BookingDetailContentState extends ConsumerState<_BookingDetailContent> {
           ),
         ),
         const SizedBox(height: 12),
-        StatusOutlineButton(
-          label: 'Подтвердить',
-          color: const Color(0xFF1B7A3D),
-          loading: _saving,
-          onPressed: () => _applyStatus('CONFIRMED'),
-        ),
-        const SizedBox(height: 10),
-        StatusOutlineButton(
-          label: 'Отменить',
-          color: const Color(0xFFC62828),
-          loading: _saving,
-          onPressed: () => _applyStatus('CANCELLED'),
-        ),
-        const SizedBox(height: 10),
-        StatusOutlineButton(
-          label: 'Завершить',
-          color: const Color(0xFF0B57D0),
-          loading: _saving,
-          onPressed: () => _applyStatus('COMPLETED'),
-        ),
-        const SizedBox(height: 20),
-        SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: FilledButton(
-            onPressed: _saving ? null : _openChangeStatus,
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFFFCC00),
-              foregroundColor: AppUiTokens.primaryText,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppUiTokens.radiusLg),
-              ),
-              textStyle: const TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 16,
-              ),
-            ),
-            child: const Text('Изменить статус'),
+        if (isManager) ...[
+          ManagerStatusActionButton(
+            label: 'Подтвердить',
+            color: const Color(0xFF1B7A3D),
+            loading: _saving,
+            onPressed: () => _applyStatus('CONFIRMED'),
           ),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: OutlinedButton(
-            onPressed: _saving ? null : _onEditPressed,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppUiTokens.primaryText,
-              side: const BorderSide(color: AppUiTokens.borderSubtle, width: 1),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppUiTokens.radiusLg),
-              ),
-              textStyle: const TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 16,
-              ),
-            ),
-            child: const Text('Редактировать'),
+          const SizedBox(height: 10),
+          ManagerStatusActionButton(
+            label: 'Отменить',
+            color: const Color(0xFFC62828),
+            loading: _saving,
+            onPressed: () => _applyStatus('CANCELLED'),
           ),
-        ),
-        if (_noteEditable) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
+          ManagerStatusActionButton(
+            label: 'Завершить',
+            color: const Color(0xFF0B57D0),
+            loading: _saving,
+            onPressed: () => _applyStatus('COMPLETED'),
+          ),
+        ] else ...[
+          StatusOutlineButton(
+            label: 'Подтвердить',
+            color: const Color(0xFF1B7A3D),
+            loading: _saving,
+            onPressed: () => _applyStatus('CONFIRMED'),
+          ),
+          const SizedBox(height: 10),
+          StatusOutlineButton(
+            label: 'Отменить',
+            color: const Color(0xFFC62828),
+            loading: _saving,
+            onPressed: () => _applyStatus('CANCELLED'),
+          ),
+          const SizedBox(height: 10),
+          StatusOutlineButton(
+            label: 'Завершить',
+            color: const Color(0xFF0B57D0),
+            loading: _saving,
+            onPressed: () => _applyStatus('COMPLETED'),
+          ),
+          const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
             height: 56,
             child: FilledButton(
-              onPressed: _saving ? null : _save,
+              onPressed: _saving ? null : _openChangeStatus,
               style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFFFCC00),
+                foregroundColor: AppUiTokens.primaryText,
+                elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(AppUiTokens.radiusLg),
                 ),
@@ -511,15 +502,55 @@ class _BookingDetailContentState extends ConsumerState<_BookingDetailContent> {
                   fontSize: 16,
                 ),
               ),
-              child: _saving
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Сохранить комментарий'),
+              child: const Text('Изменить статус'),
             ),
           ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: OutlinedButton(
+              onPressed: _saving ? null : _onEditPressed,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppUiTokens.primaryText,
+                side: const BorderSide(color: AppUiTokens.borderSubtle, width: 1),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppUiTokens.radiusLg),
+                ),
+                textStyle: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                ),
+              ),
+              child: const Text('Редактировать'),
+            ),
+          ),
+          if (_noteEditable) ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: FilledButton(
+                onPressed: _saving ? null : _save,
+                style: FilledButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppUiTokens.radiusLg),
+                  ),
+                  textStyle: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                  ),
+                ),
+                child: _saving
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Сохранить комментарий'),
+              ),
+            ),
+          ],
         ],
         SizedBox(height: bottomInset + 8),
       ],

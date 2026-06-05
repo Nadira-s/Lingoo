@@ -1,8 +1,5 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../auth_notifier.dart';
 import '../widgets/components/app_ui_tokens.dart';
@@ -23,8 +20,7 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
   late TextEditingController _emailController;
   late String _selectedBranch;
   late String _selectedStatus;
-  File? _imageFile;
-  final ImagePicker _imagePicker = ImagePicker();
+
 
   @override
   void initState() {
@@ -49,24 +45,7 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
-    try {
-      final XFile? pickedFile = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
-      );
-      if (pickedFile != null && mounted) {
-        setState(() {
-          _imageFile = File(pickedFile.path);
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка при выборе изображения: $e')),
-        );
-      }
-    }
-  }
+
 
   void _onSave() {
     if (_formKey.currentState?.validate() ?? false) {
@@ -125,11 +104,11 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: _onSave,
+            onPressed: _onLogout,
             child: const Text(
-              'Сохранить',
+              'Выйти',
               style: TextStyle(
-                color: Color(0xFFFFC107),
+                color: Colors.redAccent,
                 fontWeight: FontWeight.w700,
                 fontSize: 14,
               ),
@@ -147,66 +126,28 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Profile Image with Camera Icon
+                    // Profile Image
                     Center(
-                      child: Stack(
-                        children: [
-                          Container(
-                            width: 140,
-                            height: 140,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(
-                                AppUiTokens.radiusLg,
-                              ),
-                              color: AppUiTokens.surfaceMuted,
-                              border: Border.all(
-                                color: AppUiTokens.borderSubtle,
-                                width: 2,
-                              ),
-                            ),
-                            child: _imageFile != null
-                                ? ClipRRect(
-                                    borderRadius: BorderRadius.circular(
-                                      AppUiTokens.radiusLg,
-                                    ),
-                                    child: Image.file(
-                                      _imageFile!,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  )
-                                : Center(
-                                    child: Icon(
-                                      Icons.person,
-                                      size: 60,
-                                      color: AppUiTokens.secondaryText,
-                                    ),
-                                  ),
+                      child: Container(
+                        width: 140,
+                        height: 140,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(
+                            AppUiTokens.radiusLg,
                           ),
-                          Positioned(
-                            bottom: 8,
-                            right: 8,
-                            child: GestureDetector(
-                              onTap: _pickImage,
-                              child: Container(
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8),
-                                  color: const Color(0xFFFFC107),
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 2,
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.camera_alt,
-                                  color: Colors.black,
-                                  size: 24,
-                                ),
-                              ),
-                            ),
+                          color: AppUiTokens.surfaceMuted,
+                          border: Border.all(
+                            color: AppUiTokens.borderSubtle,
+                            width: 2,
                           ),
-                        ],
+                        ),
+                        child: const Center(
+                          child: Icon(
+                            Icons.person,
+                            size: 60,
+                            color: AppUiTokens.secondaryText,
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 32),
@@ -244,7 +185,7 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
                         ),
                         const SizedBox(height: 8),
                         DropdownButtonFormField<String>(
-                          value: _selectedBranch,
+                          initialValue: _selectedBranch,
                           dropdownColor: Colors.white,
                           decoration: InputDecoration(
                             filled: true,
@@ -302,7 +243,7 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
                         ),
                         const SizedBox(height: 8),
                         DropdownButtonFormField<String>(
-                          value: _selectedStatus,
+                          initialValue: _selectedStatus,
                           dropdownColor: Colors.white,
                           decoration: InputDecoration(
                             filled: true,
@@ -356,8 +297,8 @@ class _ProfileFormScreenState extends ConsumerState<ProfileFormScreen> {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: PrimaryButton(
-                label: 'Выйти из аккаунта',
-                onPressed: _onLogout,
+                label: 'Сохранить',
+                onPressed: _onSave,
               ),
             ),
           ),

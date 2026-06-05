@@ -12,15 +12,15 @@ class MainShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = GoRouterState.of(context).uri.path;
-    final isManager =
-        ref.watch(authNotifierProvider).valueOrNull?.role.isManager ?? false;
+    final user = ref.watch(authNotifierProvider).valueOrNull;
+    final isManager = user?.isManagerUser ?? false;
 
     int indexFromPath() {
       if (loc.startsWith('/home')) return 0;
       if (loc.startsWith('/bookings')) return 1;
       if (loc.startsWith('/services')) return 2;
       if (loc.startsWith('/staff')) return 3;
-      if (loc.startsWith('/profile')) return isManager ? 2 : 4;
+      if (loc.startsWith('/profile')) return 4;
       return 0;
     }
 
@@ -29,7 +29,7 @@ class MainShell extends ConsumerWidget {
         body: child,
         bottomNavigationBar: NavigationBar(
           height: 68,
-          selectedIndex: indexFromPath().clamp(0, 2),
+          selectedIndex: indexFromPath().clamp(0, 4),
           onDestinationSelected: (i) {
             switch (i) {
               case 0:
@@ -39,6 +39,12 @@ class MainShell extends ConsumerWidget {
                 context.go('/bookings');
                 break;
               case 2:
+                context.go('/services');
+                break;
+              case 3:
+                context.go('/staff');
+                break;
+              case 4:
                 context.go('/profile');
                 break;
             }
@@ -51,6 +57,14 @@ class MainShell extends ConsumerWidget {
             NavigationDestination(
               icon: ImageIcon(AssetImage('assets/icons/booking_icon.png')),
               label: 'Записи',
+            ),
+            NavigationDestination(
+              icon: ImageIcon(AssetImage('assets/icons/services_icon.png')),
+              label: 'Услуги',
+            ),
+            NavigationDestination(
+              icon: ImageIcon(AssetImage('assets/icons/staff_icon.png')),
+              label: 'Сотрудники',
             ),
             NavigationDestination(
               icon: ImageIcon(AssetImage('assets/icons/profile_icon.png')),

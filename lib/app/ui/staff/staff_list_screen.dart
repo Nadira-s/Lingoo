@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../auth_notifier.dart';
 import '../../catalog_providers.dart';
 import '../widgets/components/app_bar_add_button.dart';
 import '../widgets/components/app_ui_tokens.dart';
@@ -33,6 +34,9 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
   @override
   Widget build(BuildContext context) {
     final list = ref.watch(staffListProvider);
+    final user = ref.watch(authNotifierProvider).valueOrNull;
+    final isManager = user?.isManagerUser ?? false;
+    final ownStaffId = user?.staffProfile?.id;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -51,10 +55,11 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
           ),
         ),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: AppBarAddButton(onPressed: () => context.push('/staff/new')),
-          ),
+          if (!isManager)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: AppBarAddButton(onPressed: () => context.push('/staff/new')),
+            ),
         ],
       ),
       body: list.when(
@@ -114,8 +119,11 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
                           const SizedBox(height: 12),
                       itemBuilder: (context, index) {
                         final s = filtered[index];
+                        final isOwn = ownStaffId != null && s.id == ownStaffId;
                         return StaffListCard(
                           member: s,
+                          readOnly: isManager,
+                          showSchedule: isManager ? isOwn : true,
                           onEdit: () => context.push('/staff/${s.id}/edit'),
                           onSchedule: () =>
                               context.push('/staff/${s.id}/schedule'),

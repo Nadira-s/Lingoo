@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../auth_notifier.dart';
 import '../../catalog_providers.dart';
 import '../../data_providers.dart';
+import '../widgets/components/app_bar_add_button.dart';
+import '../../navigation/app_navigation.dart';
 import '../../domain/model/booking.dart';
 import '../../domain/model/booking_stats.dart';
 import '../widgets/components/app_ui_tokens.dart';
@@ -78,6 +80,8 @@ class _BookingsListScreenState extends ConsumerState<BookingsListScreen> {
   Widget build(BuildContext context) {
     final bookingsAsync = ref.watch(bookingsListProvider(_query));
     final statsAsync = ref.watch(bookingsStatsProvider);
+    final isManager =
+        ref.watch(authNotifierProvider).valueOrNull?.isManagerUser ?? false;
     final stats = statsAsync.valueOrNull;
 
     return Scaffold(
@@ -98,11 +102,19 @@ class _BookingsListScreenState extends ConsumerState<BookingsListScreen> {
         actions: [
           IconButton(
             tooltip: 'Расписание',
-            onPressed: () => context.push('/bookings/schedule'),
+            onPressed: () => openBookingsSchedule(context),
             icon: const Icon(Icons.calendar_month_outlined),
             color: AppUiTokens.primaryText,
           ),
-          const SizedBox(width: 8),
+          if (isManager)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: AppBarAddButton(
+                onPressed: () => openNewBooking(context),
+              ),
+            )
+          else
+            const SizedBox(width: 8),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(56),
@@ -230,7 +242,7 @@ class _BookingsListScreenState extends ConsumerState<BookingsListScreen> {
                         ...entry.value.map(
                           (data) => BookingCard(
                             booking: data,
-                            onTap: () => context.push('/bookings/${data.id}'),
+                            onTap: () => openBookingDetail(context, data.id),
                           ),
                         ),
                         const SizedBox(height: 32),

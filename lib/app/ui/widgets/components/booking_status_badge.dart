@@ -35,12 +35,17 @@ class BookingStatusBadge extends StatelessWidget {
           Color(0xFFE8F8EE),
           Color(0xFF1B7A3D),
         );
-      case 'pending':
       case 'new':
         return const _BookingStatusStyle(
           'Новая',
           Color(0xFFE6F4FF),
           Color(0xFF0B57D0),
+        );
+      case 'pending':
+        return const _BookingStatusStyle(
+          'Ожидает',
+          Color(0xFFFFF7E6),
+          Color(0xFFB45309),
         );
       case 'cancelled':
         return const _BookingStatusStyle(

@@ -35,8 +35,8 @@ class CatalogItemCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.trailingVisual,
-    required this.primaryAction,
-    required this.secondaryAction,
+    this.primaryAction,
+    this.secondaryAction,
     this.onCardTap,
     this.visualSize = 88,
   });
@@ -46,8 +46,8 @@ class CatalogItemCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final Widget trailingVisual;
-  final CatalogItemCardAction primaryAction;
-  final CatalogItemCardAction secondaryAction;
+  final CatalogItemCardAction? primaryAction;
+  final CatalogItemCardAction? secondaryAction;
   final VoidCallback? onCardTap;
   final double visualSize;
 
@@ -187,14 +187,23 @@ class CatalogItemCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 18),
-            Row(
-              children: [
-                Expanded(child: _actionButton(primaryAction)),
-                const SizedBox(width: 10),
-                Expanded(child: _actionButton(secondaryAction)),
-              ],
-            ),
+            if (primaryAction != null || secondaryAction != null) ...[
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  if (primaryAction != null)
+                    Expanded(child: _actionButton(primaryAction!))
+                  else
+                    const Spacer(),
+                  if (primaryAction != null && secondaryAction != null)
+                    const SizedBox(width: 10),
+                  if (secondaryAction != null)
+                    Expanded(child: _actionButton(secondaryAction!))
+                  else if (primaryAction == null)
+                    const Spacer(),
+                ],
+              ),
+            ],
           ],
         ),
       ),

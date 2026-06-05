@@ -17,7 +17,7 @@ class Branch {
 
   factory Branch.fromJson(Map<String, dynamic> json) {
     return Branch(
-      id: readInt(json['id']) ?? 0,
+      id: readEntityId(json, ['id', 'pk', 'branch_id']),
       name: readString(json, 'name'),
       address: readString(json, 'address'),
       phone: readString(json, 'phone'),

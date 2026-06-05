@@ -93,18 +93,31 @@ class StaffMember {
         .toList();
   }
 
-  List<int> get branchIds => branchId != null ? [branchId!] : const [];
+  /// Тело POST `/staff/` и PATCH `/staff/<id>/` (как в рабочей версии приложения).
+  Map<String, dynamic> toApiBody({String? password}) {
+    final body = <String, dynamic>{
+      'name': name,
+      'email': email,
+      'is_active': isActive,
+      'buffer_minutes': bufferMinutes,
+      'branches': branchId != null && branchId! > 0 ? [branchId!] : [],
+      'services': serviceIds,
+    };
+    if (phone.isNotEmpty) body['phone'] = phone;
+    if (password != null && password.isNotEmpty) {
+      body['password'] = password;
+    }
+    return body;
+  }
 
-  /// Тело POST `/staff/` и PATCH `/staff/<id>/` по Mobile API Reference.
-  Map<String, dynamic> toApiBody({String? password}) => {
-        'name': name,
-        'email': email,
-        if (password != null && password.isNotEmpty) 'password': password,
-        'branches': branchIds,
-        'services': serviceIds,
-        'is_active': isActive,
-        'buffer_minutes': bufferMinutes,
-      };
+  /// Только привязки филиала и услуг.
+  Map<String, dynamic> toBindingsBody() {
+    final body = <String, dynamic>{};
+    final bid = branchId;
+    if (bid != null && bid > 0) body['branches'] = [bid];
+    if (serviceIds.isNotEmpty) body['services'] = serviceIds;
+    return body;
+  }
 
   StaffMember withoutBindings() => StaffMember(
         id: id,

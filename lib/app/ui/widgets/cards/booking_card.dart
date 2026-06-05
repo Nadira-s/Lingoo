@@ -63,22 +63,11 @@ class BookingCard extends StatelessWidget {
                             color: AppUiTokens.primaryText,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 4),
                         Text(
-                          booking.serviceName.isEmpty
-                              ? 'Услуга'
-                              : booking.serviceName,
+                          '${booking.serviceName.isEmpty ? 'Услуга' : booking.serviceName}, $timeText',
                           style: const TextStyle(
                             color: AppUiTokens.secondaryText,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          timeText,
-                          style: const TextStyle(
-                            color: AppUiTokens.tertiaryText,
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                           ),

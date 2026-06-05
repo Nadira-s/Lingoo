@@ -12,11 +12,15 @@ class StaffListCard extends StatelessWidget {
     required this.member,
     required this.onEdit,
     this.onSchedule,
+    this.readOnly = false,
+    this.showSchedule = true,
   });
 
   final StaffMember member;
   final VoidCallback onEdit;
   final VoidCallback? onSchedule;
+  final bool readOnly;
+  final bool showSchedule;
 
   String _subtitle() {
     final roleRu = switch (member.apiRole.toUpperCase()) {
@@ -69,23 +73,26 @@ class StaffListCard extends StatelessWidget {
           ),
         ),
       ),
-      primaryAction: CatalogItemCardAction(
-        label: 'Редактировать',
-        icon: Icons.edit_outlined,
-        onPressed: onEdit,
-      ),
-      secondaryAction: CatalogItemCardAction(
-        label: 'Расписание',
-        icon: Icons.calendar_today_outlined,
-        onPressed:
-            onSchedule ??
-            () {
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text('Расписание: $title')));
-            },
-        style: CatalogItemCardButtonStyle.filledAccent,
-      ),
+      primaryAction: readOnly
+          ? null
+          : CatalogItemCardAction(
+              label: 'Редактировать',
+              icon: Icons.edit_outlined,
+              onPressed: onEdit,
+            ),
+      secondaryAction: showSchedule
+          ? CatalogItemCardAction(
+              label: 'Расписание',
+              icon: Icons.calendar_today_outlined,
+              onPressed: onSchedule ??
+                  () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Расписание: $title')),
+                    );
+                  },
+              style: CatalogItemCardButtonStyle.filledAccent,
+            )
+          : null,
     );
   }
 }

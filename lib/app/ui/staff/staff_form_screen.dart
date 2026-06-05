@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../domain/model/branch.dart';
 import '../../domain/model/staff_member.dart';
 import '../../domain/model/user_role.dart';
 import '../../access_providers.dart';
@@ -42,16 +43,32 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
   @override
   Widget build(BuildContext context) {
     final staffId = widget.staffId;
-    if (staffId == null) {
-      return _StaffFormScaffold(
-        title: 'Новый сотрудник',
+    
+    Widget buildBody(StaffMember? initial) {
+      return _StaffFormBody(
+        key: _bodyKey,
+        formKey: _formKey,
+        initial: initial,
         saving: _saving,
         onSave: () => _onSave(context),
-        child: _StaffFormBody(
-          key: _bodyKey,
-          formKey: _formKey,
-          initial: null,
+      );
+    }
+
+    if (staffId == null) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          centerTitle: false,
+          title: const Text('Новый сотрудник'),
+          elevation: 0,
+          backgroundColor: Colors.white,
+          foregroundColor: const Color(0xFF1A1C1E),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
         ),
+        body: buildBody(null),
       );
     }
 
@@ -63,68 +80,34 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
         appBar: AppBar(title: const Text('Сотрудник')),
         body: Center(child: Text('$e')),
       ),
-      data: (s) => _StaffFormScaffold(
-        title: 'Редактирование',
-        saving: _saving,
-        onSave: () => _onSave(context),
-        child: _StaffFormBody(
-          key: _bodyKey,
-          formKey: _formKey,
-          initial: s,
-        ),
-      ),
-    );
-  }
-}
-
-class _StaffFormScaffold extends StatelessWidget {
-  const _StaffFormScaffold({
-    required this.title,
-    required this.onSave,
-    required this.child,
-    this.saving = false,
-  });
-
-  final String title;
-  final VoidCallback onSave;
-  final Widget child;
-  final bool saving;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        centerTitle: false,
-        title: Text(title),
-        elevation: 0,
+      data: (s) => Scaffold(
         backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1A1C1E),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: saving ? null : onSave,
-            child: saving
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text(
-                    'Сохранить',
-                    style: TextStyle(
-                      color: Color(0xFFFFCC00),
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                    ),
-                  ),
+        appBar: AppBar(
+          centerTitle: false,
+          title: const Text('Редактирование'),
+          elevation: 0,
+          backgroundColor: Colors.white,
+          foregroundColor: const Color(0xFF1A1C1E),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+            onPressed: () => Navigator.of(context).maybePop(),
           ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: _saving ? null : () => _bodyKey.currentState?.onDelete(),
+              child: const Text(
+                'Удалить',
+                style: TextStyle(
+                  color: Colors.redAccent,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ],
+        ),
+        body: buildBody(s),
       ),
-      body: child,
     );
   }
 }
@@ -134,10 +117,14 @@ class _StaffFormBody extends ConsumerStatefulWidget {
     super.key,
     required this.formKey,
     required this.initial,
+    required this.saving,
+    required this.onSave,
   });
 
   final GlobalKey<FormState> formKey;
   final StaffMember? initial;
+  final bool saving;
+  final VoidCallback onSave;
 
   @override
   ConsumerState<_StaffFormBody> createState() => _StaffFormBodyState();
@@ -148,7 +135,6 @@ class _StaffFormBodyState extends ConsumerState<_StaffFormBody> {
   late final TextEditingController _phone;
   late final TextEditingController _email;
   late final TextEditingController _password;
-  late final TextEditingController _buffer;
   int? _branchId;
   final Set<int> _serviceIds = {};
   late bool _active;
@@ -183,14 +169,39 @@ class _StaffFormBodyState extends ConsumerState<_StaffFormBody> {
     _phone = TextEditingController(text: i?.phone ?? '');
     _email = TextEditingController(text: i?.email ?? '');
     _password = TextEditingController();
-    _buffer = TextEditingController(
-      text: i?.bufferMinutes == null || i!.bufferMinutes == 0
-          ? ''
-          : '${i.bufferMinutes}',
-    );
-    _branchId = i?.branchId;
+    final rawBranch = i?.branchId;
+    _branchId = rawBranch != null && rawBranch > 0 ? rawBranch : null;
     _serviceIds.addAll(i?.serviceIds ?? const []);
     _active = i?.isActive ?? true;
+  }
+
+  @override
+  void didUpdateWidget(covariant _StaffFormBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final raw = widget.initial?.branchId;
+    if (raw != null && raw > 0 && _branchId == null) {
+      _branchId = raw;
+    }
+  }
+
+  /// ID филиала, который реально есть в списке с API.
+  int? _resolvedBranchId(List<Branch> branches) {
+    if (_branchId != null &&
+        _branchId! > 0 &&
+        branches.any((b) => b.id == _branchId)) {
+      return _branchId;
+    }
+    final fromInitial = widget.initial?.branchId;
+    if (fromInitial != null &&
+        fromInitial > 0 &&
+        branches.any((b) => b.id == fromInitial)) {
+      return fromInitial;
+    }
+    if (branches.length == 1) {
+      final only = branches.first.id;
+      if (only > 0) return only;
+    }
+    return null;
   }
 
   @override
@@ -199,11 +210,10 @@ class _StaffFormBodyState extends ConsumerState<_StaffFormBody> {
     _phone.dispose();
     _email.dispose();
     _password.dispose();
-    _buffer.dispose();
     super.dispose();
   }
 
-  StaffMember _buildDraft() {
+  StaffMember _buildDraft({int? branchId}) {
     return StaffMember(
       id: widget.initial?.id ?? 0,
       name: _name.text.trim(),
@@ -211,13 +221,15 @@ class _StaffFormBodyState extends ConsumerState<_StaffFormBody> {
       email: _email.text.trim(),
       role: UserRole.manager,
       apiRole: 'MANAGER',
-      branchId: _branchId,
+      branchId: branchId ?? _branchId,
       branchName: '',
       isActive: _active,
       serviceIds: _serviceIds.toList(),
-      bufferMinutes: int.tryParse(_buffer.text.trim()) ?? 0,
+      bufferMinutes: widget.initial?.bufferMinutes ?? 0,
     );
   }
+
+  Future<void> onDelete() => _onDelete();
 
   void _showError(Object e) {
     var msg = e is ApiException
@@ -235,20 +247,33 @@ class _StaffFormBodyState extends ConsumerState<_StaffFormBody> {
       );
       return false;
     }
-    if (_branchId == null) {
+    List<Branch> branches;
+    try {
+      branches = await ref.read(branchesListProvider.future);
+    } catch (e) {
+      _showError(e);
+      return false;
+    }
+    if (!mounted) return false;
+    final branchId = _resolvedBranchId(
+      branches.where((b) => b.id > 0).toList(),
+    );
+    if (branchId == null || branchId <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Выберите филиал')),
+        const SnackBar(
+          content: Text(
+            'Выберите филиал из списка. Если список пуст или не загрузился — '
+            'создайте филиал в разделе «Филиалы».',
+          ),
+        ),
       );
       return false;
     }
-    if (_serviceIds.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Выберите хотя бы одну услугу')),
-      );
-      return false;
+    if (_branchId != branchId) {
+      setState(() => _branchId = branchId);
     }
     final repo = ref.read(lingooRepositoryProvider);
-    final draft = _buildDraft();
+    final draft = _buildDraft(branchId: branchId);
     final password = _password.text.trim();
     try {
       if (widget.initial == null) {
@@ -354,65 +379,28 @@ class _StaffFormBodyState extends ConsumerState<_StaffFormBody> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Profile image with camera icon
+                  // Profile image
                   Center(
-                    child: Stack(
-                      children: [
-                        Container(
-                          width: 120,
-                          height: 120,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(
-                              AppUiTokens.radiusLg,
-                            ),
-                            color: AppUiTokens.surfaceMuted,
-                            border: Border.all(
-                              color: AppUiTokens.borderSubtle,
-                              width: 2,
-                            ),
-                          ),
-                          child: const Center(
-                            child: Icon(
-                              Icons.person,
-                              size: 60,
-                              color: AppUiTokens.secondaryText,
-                            ),
-                          ),
+                    child: Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(
+                          AppUiTokens.radiusLg,
                         ),
-                        Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child: GestureDetector(
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Загрузка фото сотрудника появится после '
-                                    'поддержки в Mobile API.',
-                                  ),
-                                ),
-                              );
-                            },
-                            child: Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(8),
-                                color: const Color(0xFFFFCC00),
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 2,
-                                ),
-                              ),
-                              child: const Icon(
-                                Icons.camera_alt,
-                                color: Colors.black,
-                                size: 20,
-                              ),
-                            ),
-                          ),
+                        color: AppUiTokens.surfaceMuted,
+                        border: Border.all(
+                          color: AppUiTokens.borderSubtle,
+                          width: 2,
                         ),
-                      ],
+                      ),
+                      child: const Center(
+                        child: Icon(
+                          Icons.person,
+                          size: 60,
+                          color: AppUiTokens.secondaryText,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 32),
@@ -446,19 +434,13 @@ class _StaffFormBodyState extends ConsumerState<_StaffFormBody> {
                         : 'Новый пароль (необязательно)',
                     hintText: 'Введите пароль...',
                     validator: widget.initial == null
-                        ? (v) => (v == null || v.length < 4)
-                            ? ''
+                        ? (v) => (v == null || v.trim().length < 4)
+                            ? 'Минимум 4 символа'
                             : null
                         : null,
                   ),
                   const SizedBox(height: 16),
-                  FormTextField(
-                    controller: _buffer,
-                    labelText: 'Перерыв между клиентами (мин)',
-                    hintText: '0',
-                    keyboardType: TextInputType.number,
-                  ),
-                  const SizedBox(height: 16),
+
                   ref.watch(servicesListProvider).when(
                     data: (services) {
                       if (services.isEmpty) {
@@ -510,6 +492,8 @@ class _StaffFormBodyState extends ConsumerState<_StaffFormBody> {
                   const SizedBox(height: 16),
                   branches.when(
                     data: (list) {
+                      final valid = list.where((b) => b.id > 0).toList();
+                      final selectedId = _resolvedBranchId(valid);
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -522,20 +506,37 @@ class _StaffFormBodyState extends ConsumerState<_StaffFormBody> {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          DropdownButtonFormField<int?>(
-                            value: _branchId,
-                            dropdownColor: Colors.white,
-                            decoration: _dropdownDecoration(),
-                            items: [
-                              ...list.map(
-                                (b) => DropdownMenuItem<int?>(
-                                  value: b.id,
-                                  child: Text(b.name),
-                                ),
-                              ),
-                            ],
-                            onChanged: (v) => setState(() => _branchId = v),
-                          ),
+                          if (valid.isEmpty)
+                            const Text(
+                              'Сначала создайте филиал в разделе «Филиалы»',
+                              style: TextStyle(color: AppUiTokens.secondaryText),
+                            )
+                          else
+                            DropdownButtonFormField<int>(
+                              initialValue: selectedId,
+                              dropdownColor: Colors.white,
+                              decoration: _dropdownDecoration(),
+                              hint: const Text('Выберите филиал'),
+                              items: valid
+                                  .map(
+                                    (b) => DropdownMenuItem<int>(
+                                      value: b.id,
+                                      child: Text(
+                                        b.name.isEmpty ? 'Филиал #${b.id}' : b.name,
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (v) {
+                                if (v != null && v > 0) {
+                                  setState(() => _branchId = v);
+                                }
+                              },
+                              validator: (_) =>
+                                  selectedId == null || selectedId <= 0
+                                  ? 'Выберите филиал'
+                                  : null,
+                            ),
                         ],
                       );
                     },
@@ -556,7 +557,7 @@ class _StaffFormBodyState extends ConsumerState<_StaffFormBody> {
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
-                        value: _active ? 'active' : 'inactive',
+                        initialValue: _active ? 'active' : 'inactive',
                         dropdownColor: Colors.white,
                         decoration: _dropdownDecoration(),
                         items: const [
@@ -584,9 +585,9 @@ class _StaffFormBodyState extends ConsumerState<_StaffFormBody> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: PrimaryButton(
-              label: 'Удалить',
-              onPressed: _onDelete,
-              isOutlined: true,
+              label: 'Сохранить',
+              onPressed: widget.onSave,
+              isLoading: widget.saving,
             ),
           ),
         ),

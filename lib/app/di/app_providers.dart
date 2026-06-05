@@ -31,7 +31,10 @@ final lingooApiClientProvider = Provider<LingooApiClient>((ref) {
 final businessApiProvider = lingooApiClientProvider;
 
 final lingooRepositoryProvider = Provider<LingooRepository>((ref) {
-  return LingooRepositoryImpl(ref.watch(lingooApiClientProvider));
+  return LingooRepositoryImpl(
+    ref.watch(lingooApiClientProvider),
+    ref.watch(tokenStorageProvider),
+  );
 });
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {

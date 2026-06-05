@@ -12,11 +12,13 @@ class ServiceListCard extends StatelessWidget {
     required this.service,
     required this.onEdit,
     this.onSchedule,
+    this.readOnly = false,
   });
 
   final SalonService service;
   final VoidCallback onEdit;
   final VoidCallback? onSchedule;
+  final bool readOnly;
 
   static final _priceFormat = NumberFormat('#,###', 'ru');
 
@@ -71,24 +73,28 @@ class ServiceListCard extends StatelessWidget {
           ),
         ),
       ),
-      primaryAction: CatalogItemCardAction(
-        label: _formatPrice(service.price),
-        icon: Icons.payments_outlined,
-        onPressed: onEdit,
-        style: CatalogItemCardButtonStyle.outlined,
-      ),
-      secondaryAction: CatalogItemCardAction(
-        label: 'Расписание',
-        icon: Icons.calendar_today_outlined,
-        onPressed: onSchedule ??
-            () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Расписание (скоро)')),
-              );
-            },
-        style: CatalogItemCardButtonStyle.filledAccent,
-      ),
-      onCardTap: onEdit,
+      primaryAction: readOnly
+          ? null
+          : CatalogItemCardAction(
+              label: _formatPrice(service.price),
+              icon: Icons.payments_outlined,
+              onPressed: onEdit,
+              style: CatalogItemCardButtonStyle.outlined,
+            ),
+      secondaryAction: readOnly
+          ? null
+          : CatalogItemCardAction(
+              label: 'Расписание',
+              icon: Icons.calendar_today_outlined,
+              onPressed: onSchedule ??
+                  () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Расписание (скоро)')),
+                    );
+                  },
+              style: CatalogItemCardButtonStyle.filledAccent,
+            ),
+      onCardTap: readOnly ? null : onEdit,
     );
   }
 }

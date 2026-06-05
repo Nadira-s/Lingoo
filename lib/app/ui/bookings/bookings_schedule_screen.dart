@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../catalog_providers.dart';
+import '../../auth_notifier.dart';
+import '../../navigation/app_navigation.dart';
 import '../../domain/model/booking.dart';
 import '../widgets/cards/schedule_booking_row.dart';
 import '../widgets/components/app_ui_tokens.dart';
@@ -37,6 +39,8 @@ class _BookingsScheduleScreenState
   @override
   Widget build(BuildContext context) {
     final bookingsAsync = ref.watch(dayBookingsProvider(_selectedDate));
+    final isManager =
+        ref.watch(authNotifierProvider).valueOrNull?.isManagerUser ?? false;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -107,7 +111,7 @@ class _BookingsScheduleScreenState
                           selected: _selectedBookingId == b.id,
                           onTap: () {
                             setState(() => _selectedBookingId = b.id);
-                            context.push('/bookings/${b.id}');
+                            openBookingDetail(context, b.id);
                           },
                         ),
                     ],
@@ -118,23 +122,17 @@ class _BookingsScheduleScreenState
           ),
         ],
       ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-          child: PrimaryButton(
-            label: '+ Создать',
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'Новые записи создаются клиентами через публичную ссылку.',
-                  ),
+      bottomNavigationBar: isManager
+          ? SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                child: PrimaryButton(
+                  label: '+ Создать',
+                  onPressed: () => openNewBooking(context),
                 ),
-              );
-            },
-          ),
-        ),
-      ),
+              ),
+            )
+          : null,
     );
   }
 

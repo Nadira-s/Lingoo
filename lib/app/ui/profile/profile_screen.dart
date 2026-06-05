@@ -14,7 +14,7 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authNotifierProvider).valueOrNull;
-    final isManager = user?.role.isManager ?? false;
+    final isManager = user?.isManagerUser ?? false;
 
     if (isManager) {
       return Scaffold(
@@ -22,6 +22,8 @@ class ProfileScreen extends ConsumerWidget {
         appBar: AppBar(
           backgroundColor: Colors.white,
           elevation: 0,
+          scrolledUnderElevation: 0,
+          surfaceTintColor: Colors.transparent,
           title: const Text(
             'Профиль',
             style: TextStyle(
@@ -29,6 +31,26 @@ class ProfileScreen extends ConsumerWidget {
               fontSize: 28,
             ),
           ),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: GestureDetector(
+                onTap: () => context.push('/profile/form'),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFCC00),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.all(8),
+                  child: const Icon(
+                    Icons.edit_outlined,
+                    color: AppUiTokens.primaryText,
+                    size: 22,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
         body: const ManagerProfileBody(),
       );
@@ -65,7 +87,11 @@ class _AdminProfileBody extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       children: [
-        ProfileHeaderCard(name: userName, roleLabel: role),
+        ProfileHeaderCard(
+          name: userName,
+          roleLabel: role,
+          onEdit: () => context.push('/profile/form'),
+        ),
         const SizedBox(height: 20),
         tariff.when(
           data: (t) {
@@ -82,32 +108,39 @@ class _AdminProfileBody extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => context.push('/profile/tariff'),
                     borderRadius: BorderRadius.circular(AppUiTokens.radiusLg),
-                    border: Border.all(color: AppUiTokens.borderSubtle),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'План: $plan',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16,
-                        ),
+                    child: Ink(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(AppUiTokens.radiusLg),
+                        border: Border.all(color: AppUiTokens.borderSubtle),
                       ),
-                      if (t.usagePercent > 0)
-                        Text(
-                          '${t.usagePercent.toStringAsFixed(0)}%',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFFC6A400),
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'План: $plan',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                            ),
                           ),
-                        ),
-                    ],
+                          if (t.usagePercent > 0)
+                            Text(
+                              '${t.usagePercent.toStringAsFixed(0)}%',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFFC6A400),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -203,7 +236,10 @@ class _SubscriptionLimitItem extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-            Text('$current/$total', style: const TextStyle(fontWeight: FontWeight.w600)),
+            Text(
+              '$current/$total',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
           ],
         ),
         const SizedBox(height: 8),

@@ -42,6 +42,8 @@ abstract class LingooRepository {
 
   Future<Booking> getBooking(int id);
 
+  Future<Booking> createBooking(Booking draft);
+
   Future<Booking> updateBookingStatus(int id, String status);
 
   Future<Booking> updateBookingComment(int id, String adminComment);
